@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""Reject credential files and private build products in the commit snapshot."""
+import subprocess
+import sys
+from pathlib import PurePosixPath
+
+files = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+blocked = []
+for name in filter(None, files):
+    path = PurePosixPath(name)
+    base = path.name.lower()
+    if (base == ".env" or base.startswith(".env.") or base.endswith(".env")
+            or ".env." in base or "Releases" in path.parts
+            or any(part.endswith((".app", ".xcarchive")) for part in path.parts)):
+        blocked.append(name)
+if blocked:
+    print("Commit blocked: environment files or private builds are tracked:", file=sys.stderr)
+    for name in blocked:
+        print("  " + name, file=sys.stderr)
+    print("Remove these from Git's index, keeping the local files, then retry.", file=sys.stderr)
+    sys.exit(1)

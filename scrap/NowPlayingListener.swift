@@ -1,40 +1,66 @@
-import Foundation
+import AppKit
+import Combine
 
 @MainActor
 final class NowPlayingListener: ObservableObject {
-    @Published var trackTitle: String = "—"
-    @Published var artist: String = "—"
-    @Published var album: String = "—"
-    @Published var playerState: String = "Stopped"
+    @Published private(set) var track: PlayingTrack?
+    @Published private(set) var isPlaying = false
+    @Published private(set) var errorMessage: String?
+    var onUpdate: ((PlayingTrack?, Bool, Bool) -> Void)?
+    private var timer: Timer?
+    private var previousPosition: Double?
+    private var previousID: String?
 
-    init() {
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleMusicNotification(_:)),
-            name: NSNotification.Name("com.apple.Music.playerInfo"),
-            object: nil
-        )
-    }
-
-    @objc private func handleMusicNotification(_ note: Notification) {
-        guard let info = note.userInfo else { return }
-
-        // Keys are documented informally, but consistently: Name, Artist, Album, Player State
-        let name = info["Name"] as? String ?? "Unknown"
-        let artistName = info["Artist"] as? String ?? "Unknown"
-        let albumName = info["Album"] as? String ?? "Unknown"
-        let state = info["Player State"] as? String ?? "Unknown"
-
-        Task { @MainActor in
-            self.trackTitle = name
-            self.artist = artistName
-            self.album = albumName
-            self.playerState = state
-            print("🎵 [\(state)] \(name) — \(artistName) (\(albumName))")
+    func start() {
+        guard timer == nil else { return }
+        refresh()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.refresh() }
         }
     }
 
-    deinit {
-        DistributedNotificationCenter.default().removeObserver(self)
+    func refresh() {
+        guard NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Music").isEmpty == false else {
+            publish(nil, playing: false)
+            return
+        }
+        let source = """
+        tell application "Music"
+            if player state is stopped then return {"stopped"}
+            return {player state as text, name of current track, artist of current track, album of current track, duration of current track, player position, persistent ID of current track}
+        end tell
+        """
+        var error: NSDictionary?
+        guard let script = NSAppleScript(source: source) else { return }
+        let result = script.executeAndReturnError(&error)
+        if let error {
+            errorMessage = (error[NSAppleScript.errorMessage] as? String) ?? "Allow Scrap to read Music in System Settings → Privacy & Security → Automation."
+            publish(nil, playing: false)
+            return
+        }
+        errorMessage = nil
+        guard result.numberOfItems == 7,
+              let title = result.atIndex(2)?.stringValue,
+              let artist = result.atIndex(3)?.stringValue,
+              !title.isEmpty, !artist.isEmpty else {
+            publish(nil, playing: false)
+            return
+        }
+        let duration = result.atIndex(5)?.doubleValue ?? 0
+        let position = result.atIndex(6)?.doubleValue ?? 0
+        let id = result.atIndex(7)?.stringValue
+        // A wrap at the end distinguishes repeat-one from an ordinary backward seek.
+        let repeated = id == previousID && duration > 0 && (previousPosition ?? 0) >= duration - 3 && position < 3
+        let changedID = previousID != nil && id != previousID
+        previousID = id
+        previousPosition = position
+        publish(PlayingTrack(title: title, artist: artist, album: result.atIndex(4)?.stringValue ?? "", duration: duration > 0 ? duration : nil), playing: result.atIndex(1)?.stringValue == "playing", restarted: repeated || changedID)
+    }
+
+    private func publish(_ track: PlayingTrack?, playing: Bool, restarted: Bool = false) {
+        self.track = track
+        isPlaying = playing
+        if track == nil { previousPosition = nil; previousID = nil }
+        onUpdate?(track, playing, restarted)
     }
 }

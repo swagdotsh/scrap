@@ -1,87 +1,54 @@
 import Foundation
+import Combine
 
 @MainActor
 final class ScrobbleEngine: ObservableObject {
     @Published private(set) var currentlyTracking: PlayingTrack?
     @Published private(set) var accumulatedPlayTime: TimeInterval = 0
     @Published private(set) var hasScrobbledCurrent = false
+    func suspendTiming() {
+        wasPlaying = false
+        lastUpdate = nil
+    }
 
-    private var timer: Timer?
-    private var lastTickDate: Date?
-
-    // Hooks — wire these to your Last.fm API calls
+    private var lastUpdate: Date?
+    private var wasPlaying = false
+    private var startedAt: Date?
+    private var sentNowPlaying = false
     var onNowPlaying: ((PlayingTrack) -> Void)?
-    var onScrobble: ((PlayingTrack) -> Void)?
+    var onScrobble: ((PlayingTrack, Date) -> Void)?
 
-    func update(track: PlayingTrack?, isPlaying: Bool) {
-        guard let track else {
-            stopTracking()
-            return
+    func update(track: PlayingTrack?, isPlaying: Bool, restarted: Bool = false, now: Date = Date()) {
+        // Count only observed playback intervals. Long gaps (sleep or a blocked app) don't count.
+        if wasPlaying, let lastUpdate {
+            let elapsed = now.timeIntervalSince(lastUpdate)
+            if elapsed >= 0 && elapsed <= 3 { accumulatedPlayTime += elapsed }
+            checkThreshold()
         }
-
-        if track != currentlyTracking {
-            // New track — reset state, fire now-playing
-            startTracking(track)
+        if track != currentlyTracking || restarted {
+            currentlyTracking = track
+            accumulatedPlayTime = 0
+            hasScrobbledCurrent = false
+            startedAt = nil
+            sentNowPlaying = false
         }
-
-        isPlaying ? resumeTimer() : pauseTimer()
-    }
-
-    private func startTracking(_ track: PlayingTrack) {
-        currentlyTracking = track
-        accumulatedPlayTime = 0
-        hasScrobbledCurrent = false
-        pauseTimer()
-
-        // Last.fm rule: skip anything 30s or shorter entirely
-        if let duration = track.duration, duration <= 30 {
-            currentlyTracking = nil
-            return
+        if let track, isPlaying {
+            if startedAt == nil { startedAt = now }
+            if !sentNowPlaying {
+                sentNowPlaying = true
+                onNowPlaying?(track)
+            }
         }
-
-        onNowPlaying?(track)
+        wasPlaying = isPlaying && track != nil
+        lastUpdate = now
     }
 
-    private func stopTracking() {
-        pauseTimer()
-        currentlyTracking = nil
-        accumulatedPlayTime = 0
-        hasScrobbledCurrent = false
-    }
-
-    private func resumeTimer() {
-        guard timer == nil else { return }
-        lastTickDate = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
-        }
-    }
-
-    private func pauseTimer() {
-        timer?.invalidate()
-        timer = nil
-        lastTickDate = nil
-    }
-
-    private func tick() {
-        guard let last = lastTickDate else { return }
-        let now = Date()
-        accumulatedPlayTime += now.timeIntervalSince(last)
-        lastTickDate = now
-
-        checkScrobbleThreshold()
-    }
-
-    private func checkScrobbleThreshold() {
-        guard let track = currentlyTracking, !hasScrobbledCurrent else { return }
-
-        let fourMinutes: TimeInterval = 240
-        let halfDuration = (track.duration ?? .infinity) / 2
-        let threshold = min(fourMinutes, halfDuration)
-
-        if accumulatedPlayTime >= threshold {
+    private func checkThreshold() {
+        guard let track = currentlyTracking, let startedAt, !hasScrobbledCurrent,
+              let duration = track.duration, duration > 30 else { return }
+        if accumulatedPlayTime >= min(240, duration / 2) {
             hasScrobbledCurrent = true
-            onScrobble?(track)
+            onScrobble?(track, startedAt)
         }
     }
 }
