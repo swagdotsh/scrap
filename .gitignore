@@ -1,17 +1,12 @@
-# Credentials and local environment files, at any depth
 .env
 .env.*
 *.env
 *.env.*
-
-# Personal release builds contain local app configuration
 Releases/
 build/
 DerivedData/
 *.app/
 *.xcarchive/
-
-# Local macOS and Xcode state
 .DS_Store
 xcuserdata/
 *.xcuserstate
