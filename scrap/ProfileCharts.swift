@@ -19,7 +19,7 @@ extension LastFMClient {
         for row in rows.prefix(5) {
             guard var link = MusicLink.parse(row).first else { continue }
             let artist = (row["artist"] as? [String: Any])?["name"] as? String ?? ""
-            // Top-track responses often omit covers; track.getInfo supplies the album image.
+            
             if kind == "tracks", link.imageURL == nil, !Task.isCancelled,
                let data = try? await request(["method": "track.getInfo", "artist": artist, "track": link.name]),
                let track = data["track"] as? [String: Any], let album = track["album"] as? [String: Any] {

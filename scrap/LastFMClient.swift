@@ -11,12 +11,12 @@ final class LastFMClient: ObservableObject {
     @Published private(set) var lastFMReachable: Bool?
     private var checkingConnection = false
     var connectionHelp: String {
-        if !isConfigured { return "Setup needed — Last.fm app credentials are missing." }
+        if !isConfigured { return "Setup needed: Last.fm app credentials are missing." }
         if sessionKey == nil { return "Not signed in to Last.fm." }
         switch lastFMReachable {
-        case true: return "Online — signed in and able to communicate with Last.fm."
-        case false: return "Offline — unable to communicate with Last.fm. Check your connection or try again later."
-        case nil: return "Checking the connection to Last.fm…"
+        case true: return "Online (Signed in and able to communicate with last.fm)"
+        case false: return "Offline (Unable to communicate with last.fm. Check your connection or try again later)"
+        case nil: return "Checking the connection to last.fm…"
         }
     }
 
@@ -26,7 +26,6 @@ final class LastFMClient: ObservableObject {
         checkingConnection = true
         defer { checkingConnection = false }
         do {
-            // Omitting user checks the account associated with this authenticated session.
             let result = try await request(["method": "user.getInfo", "sk": sessionKey])
             guard self.sessionKey == sessionKey else { return }
             lastFMReachable = result["user"] is [String: Any]
@@ -38,7 +37,7 @@ final class LastFMClient: ObservableObject {
 
     @Published var scrobblingPaused = false
     @Published private(set) var isBusy = false
-    @Published private(set) var status = "Connect your Last.fm account to start scrobbling."
+    @Published private(set) var status = "Connect your last.fm account to start scrobbling."
     @Published private(set) var pendingCount = 0
     @Published private(set) var isSending = false
     private let apiKey = AppConfiguration.load().apiKey
@@ -49,9 +48,9 @@ final class LastFMClient: ObservableObject {
     static func accountStatus(isConfigured: Bool, hasSession: Bool, username: String?) -> String {
         if !isConfigured {
             if hasSession, let username {
-                return "Account saved as \(username). Add the original app credentials to .env and rebuild Scrap to resume scrobbling."
+                return "Account saved as \(username). Add the original app credentials to .env and rebuild scrap to resume scrobbling."
             }
-            return "Add app credentials to .env and rebuild Scrap, then connect Last.fm."
+            return "Add app credentials to .env and rebuild scrap, then connect Last.fm."
         }
         if hasSession, let username { return "Connected as \(username)." }
         return "Connect your Last.fm account to start scrobbling."
@@ -109,7 +108,7 @@ final class LastFMClient: ObservableObject {
             url.queryItems = [URLQueryItem(name: "api_key", value: apiKey), URLQueryItem(name: "token", value: token)]
             guard NSWorkspace.shared.open(url.url!) else { throw failure("Could not open the authorization page.") }
             pendingToken = token
-            status = "Approve Scrap in your browser, then click ‘I've approved it’."
+            status = "Approve scrap in your browser, then click ‘I've approved it’."
         } catch { status = error.localizedDescription }
     }
 

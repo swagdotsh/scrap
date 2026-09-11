@@ -52,7 +52,6 @@ struct scrapApp: App {
     }
 }
 
-// Distinct root types keep the window and menu bar scene identities separate.
 private struct MainWindowContent: View {
     @Environment(\.openWindow) private var openWindow
     let model: AppModel

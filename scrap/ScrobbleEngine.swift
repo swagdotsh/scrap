@@ -19,7 +19,7 @@ final class ScrobbleEngine: ObservableObject {
     var onScrobble: ((PlayingTrack, Date) -> Void)?
 
     func update(track: PlayingTrack?, isPlaying: Bool, restarted: Bool = false, now: Date = Date()) {
-        // Count only observed playback intervals. Long gaps (sleep or a blocked app) don't count.
+        
         if wasPlaying, let lastUpdate {
             let elapsed = now.timeIntervalSince(lastUpdate)
             if elapsed >= 0 && elapsed <= 3 { accumulatedPlayTime += elapsed }

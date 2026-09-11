@@ -13,7 +13,7 @@ struct ListeningDetails {
         guard let artistCount, let trackCount else { return "Listening history unavailable." }
         if artistCount == 0 { return "You've never scrobbled \(track.artist) before." }
         if trackCount == 0 { return "You've scrobbled \(track.artist) \(artistCount) times, but not this track." }
-        return "You've scrobbled to \(track.artist) \(artistCount) times and \(track.title) \(trackCount) times."
+        return "You've scrobbled \(track.artist) \(artistCount) times and \(track.title) \(trackCount) times."
     }
 }
 
@@ -63,7 +63,7 @@ extension LastFMClient {
             if let info = json["track"] as? [String: Any] {
                 details.trackCount = Self.count(info["userplaycount"])
             }
-        } catch { /* Missing metadata is not evidence of zero plays. */ }
+        } catch {}
         do {
             let json = try await request(["method": "artist.getInfo", "artist": track.artist, "username": username])
             let info = json["artist"] as? [String: Any]

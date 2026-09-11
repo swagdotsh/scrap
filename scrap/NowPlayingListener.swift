@@ -49,7 +49,7 @@ final class NowPlayingListener: ObservableObject {
         let duration = result.atIndex(5)?.doubleValue ?? 0
         let position = result.atIndex(6)?.doubleValue ?? 0
         let id = result.atIndex(7)?.stringValue
-        // A wrap at the end distinguishes repeat-one from an ordinary backward seek.
+        
         let repeated = id == previousID && duration > 0 && (previousPosition ?? 0) >= duration - 3 && position < 3
         let changedID = previousID != nil && id != previousID
         previousID = id
