@@ -10,3 +10,9 @@ DerivedData/
 .DS_Store
 xcuserdata/
 *.xcuserstate
+.dotnet/
+**/bin/
+**/obj/
+.vs/
+.nuget/
+windows/publish/
