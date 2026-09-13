@@ -16,6 +16,8 @@ public sealed partial class MainWindow : Window
     private string page = "playing";
     private bool ready, ticking, actionBusy, closed, quitting;
     private TrayIcon? tray;
+    private StartupSetting? startup;
+    private bool startupEnabled;
     private int revision;
     private DateTimeOffset lastRetry = DateTimeOffset.MinValue;
     private PlayingTrack? current;
@@ -36,6 +38,13 @@ public sealed partial class MainWindow : Window
             client.Paused = !ScrobblingSwitch.IsOn;
         }
         catch (Exception e) { ShowError(e); }
+        try
+        {
+            startup = WindowsStartup.Create();
+            startupEnabled = startup.Enabled;
+            StartupCheck.IsChecked = startupEnabled;
+        }
+        catch (Exception e) { StartupCheck.IsEnabled = false; ShowError(e); }
         try
         {
             tray = new TrayIcon(WinRT.Interop.WindowNative.GetWindowHandle(this),
@@ -206,5 +215,17 @@ public sealed partial class MainWindow : Window
         client.Paused = !ScrobblingSwitch.IsOn;
         engine.Suspend();
         try { LocalStore.Save("scrobbling-enabled.json", ScrobblingSwitch.IsOn); } catch (Exception ex) { ShowError(ex); }
+    }
+
+    private void ToggleStartup(object sender, RoutedEventArgs e)
+    {
+        if (!ready || startup == null) return;
+        try
+        {
+            startup.SetEnabled(StartupCheck.IsChecked == true);
+            startupEnabled = startup.Enabled;
+            StartupCheck.IsChecked = startupEnabled;
+        }
+        catch (Exception ex) { StartupCheck.IsChecked = startupEnabled; ShowError(ex); }
     }
 }

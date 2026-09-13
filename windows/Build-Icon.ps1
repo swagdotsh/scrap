@@ -1,5 +1,3 @@
-# Converts the checked-in macOS Icon Composer artwork into a Windows ICO.
-# Run from any directory with PowerShell on Windows; no third-party packages.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $scrapRoot = Split-Path $PSScriptRoot -Parent
@@ -12,8 +10,6 @@ $scrapSvg = Get-Content (Join-Path $scrapSource ('Assets/' + $scrapLayer.'image-
 $scrapBytes = [Convert]::FromBase64String([regex]::Match($scrapSvg, 'data:image/png;base64,([^"\s]+)').Groups[1].Value)
 $scrapInput = [IO.MemoryStream]::new($scrapBytes, $false)
 $scrapNote = [Drawing.Image]::FromStream($scrapInput)
-
-# Convert the source Display P3 gradient stops to sRGB for Windows.
 function Convert-P3Color([string]$value) {
     $channels = $value.Split(':')[1].Split(',') | ForEach-Object { [double]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) }
     $linear = $channels[0..2] | ForEach-Object { if ($_ -le 0.04045) { $_ / 12.92 } else { [Math]::Pow(($_ + 0.055) / 1.055, 2.4) } }
@@ -36,7 +32,6 @@ $scrapBlend.Positions = [single[]]@(0, 0.7, 1)
 $scrapGradient.InterpolationColors = $scrapBlend
 $scrapGraphics.FillPath($scrapGradient, $scrapShape)
 $scrapTranslation = $scrapLayer.position.'translation-in-points'
-# The SVG viewBox crops one pixel from each edge of its embedded PNG.
 $scrapWidth = 194 * $scrapLayer.position.scale
 $scrapHeight = 744 * $scrapLayer.position.scale
 $scrapRect = [Drawing.RectangleF]::new((1024-$scrapWidth)/2+$scrapTranslation[0], (1024-$scrapHeight)/2+$scrapTranslation[1], $scrapWidth, $scrapHeight)

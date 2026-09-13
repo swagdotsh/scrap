@@ -130,4 +130,29 @@ Test("Tray toggle rechecks current love state before choosing love or unlove", (
     catch (InvalidOperationException) { }
     Equal(0, writes);
 });
+Test("Startup setting persists a quoted executable and removes it when disabled", () =>
+{
+    string? saved = null;
+    var setting = new StartupSetting(() => saved, value => saved = value, @"C:\My Apps\Scrap\Scrap.exe");
+    Equal(false, setting.Enabled);
+    setting.SetEnabled(true);
+    Equal("\"C:\\My Apps\\Scrap\\Scrap.exe\"", saved);
+    Equal(true, new StartupSetting(() => saved, value => saved = value, @"C:\My Apps\Scrap\Scrap.exe").Enabled);
+    setting.SetEnabled(false); Equal<string?>(null, saved); Equal(false, setting.Enabled);
+});
+Test("Startup rejects invalid paths and does not mask a failed save", () =>
+{
+    foreach (var path in new[] { "", "bad\"path.exe", "bad\npath.exe", new string('x', 261) })
+    {
+        var writes = 0;
+        var setting = new StartupSetting(() => null, _ => writes++, path);
+        try { setting.SetEnabled(true); throw new Exception("Invalid path was accepted"); }
+        catch (InvalidOperationException) { }
+        Equal(0, writes);
+    }
+    var denied = new StartupSetting(() => null, _ => throw new UnauthorizedAccessException(), @"C:\Scrap\Scrap.exe");
+    try { denied.SetEnabled(true); throw new Exception("Write failure was hidden"); }
+    catch (UnauthorizedAccessException) { }
+    Equal(false, denied.Enabled);
+});
 Console.WriteLine($"{passed} tests passed.");

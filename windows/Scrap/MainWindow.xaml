@@ -46,6 +46,7 @@
             </StackPanel>
             <StackPanel x:Name="ResultsPanel" Spacing="12" Visibility="Collapsed" />
             <StackPanel x:Name="SettingsPanel" Spacing="16" Visibility="Collapsed">
+              <CheckBox x:Name="StartupCheck" Content="Open Scrap on startup" Click="ToggleStartup"/>
               <ToggleSwitch x:Name="ScrobblingSwitch" Header="Scrobbling" OnContent="On" OffContent="Off" IsOn="True" Toggled="ToggleScrobbling"/>
               <Button Content="Retry pending scrobbles" Click="Retry" />
             </StackPanel>

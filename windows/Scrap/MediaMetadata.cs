@@ -4,8 +4,6 @@ public static class MediaMetadata
 {
     public static PlayingTrack Normalize(string source, string title, string artist, string album, double? duration)
     {
-        // Apple Music for Windows places "artist — album" in the Artist field.
-        // Restrict this workaround to that player, and prefer the explicit album boundary.
         if (source.Contains("AppleMusic", StringComparison.OrdinalIgnoreCase))
         {
             const string separator = " — ";

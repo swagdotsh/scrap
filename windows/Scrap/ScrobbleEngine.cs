@@ -2,8 +2,6 @@ namespace Scrap;
 
 public sealed record PlayingTrack(string Title, string Artist, string Album, double? Duration);
 public sealed record Submission(PlayingTrack Track, long Timestamp, string Username);
-
-// Deliberately independent of Windows so timing rules can be regression tested.
 public sealed class ScrobbleEngine
 {
     public PlayingTrack? Track { get; private set; }
@@ -29,7 +27,6 @@ public sealed class ScrobbleEngine
                 Submitted = true;
             }
         }
-        // Duration can arrive late or fluctuate; it is not track identity.
         if (track?.Title != Track?.Title || track?.Artist != Track?.Artist || track?.Album != Track?.Album || restarted)
         {
             PlayedSeconds = 0; Submitted = false; startedAt = null; sentNowPlaying = false;

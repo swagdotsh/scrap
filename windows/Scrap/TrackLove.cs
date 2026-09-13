@@ -13,7 +13,6 @@ public static class TrackLove
 
     public static async Task ToggleAsync(Func<Task<bool>> read, Func<bool, Task> write)
     {
-        // Always read before writing, including when the status changed outside Scrap.
         var loved = await read();
         await write(!loved);
     }

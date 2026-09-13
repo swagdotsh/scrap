@@ -76,7 +76,7 @@ public sealed partial class MainWindow
                         return;
                     }
                 }
-                catch { /* Try the album catalogue if the player thumbnail failed. */ }
+                catch {  }
             }
             if (!client.Configured || string.IsNullOrWhiteSpace(track.Album)) return;
             var album = await client.RequestAsync(new() { ["method"] = "album.getInfo", ["artist"] = track.Artist, ["album"] = track.Album });
@@ -174,12 +174,11 @@ public sealed partial class MainWindow
                 SimilarArtists.Children.Add(link); cards.Add((name, image));
             }
             if (cards.Count == 0) SimilarArtists.Children.Add(new TextBlock { Text = "No similar artists available.", Opacity = .65 });
-            // Paint all cards first; hydrate portraits without blocking the other sections.
             foreach (var card in cards)
             {
                 if (!Active()) return;
                 try { var uri = await PortraitAsync(card.Name); if (Active() && uri != null) card.Image.Source = new BitmapImage(uri); }
-                catch { /* Keep the named, clickable placeholder when no portrait is available. */ }
+                catch {  }
             }
         });
         await Task.WhenAll(coverTask, portraitTask, historyTask, biographyTask, tagsTask, topTracksTask, topAlbumsTask, similarTask);

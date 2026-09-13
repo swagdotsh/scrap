@@ -2,8 +2,6 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Scrap;
-
-// Uses the existing WinUI HWND and its message pump; no second UI framework.
 public sealed class TrayIcon : IDisposable
 {
     private const uint CallbackMessage = 0x8001;
@@ -22,7 +20,7 @@ public sealed class TrayIcon : IDisposable
         this.settings = settings; this.requestMenu = requestMenu;
         callback = WindowProc;
         icon = LoadImage(0, Path.Combine(AppContext.BaseDirectory, "Assets", "Scrap.ico"), 1,
-            GetSystemMetrics(49), GetSystemMetrics(50), 0x10); // IMAGE_ICON, LR_LOADFROMFILE
+            GetSystemMetrics(49), GetSystemMetrics(50), 0x10);
         if (icon == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not load the Scrap tray icon.");
         data = new NotifyIconData
         {
@@ -45,7 +43,6 @@ public sealed class TrayIcon : IDisposable
         if (message == taskbarCreated)
         {
             Available = Shell_NotifyIcon(0, ref data);
-            // If Explorer cannot restore the icon, make the app accessible again.
             if (!Available) open();
         }
         if (message == CallbackMessage)
@@ -62,7 +59,7 @@ public sealed class TrayIcon : IDisposable
     {
         if (!Available || disposed) return;
         var notification = data;
-        notification.Flags = 0x10; // NIF_INFO: use the existing tray icon's notification.
+        notification.Flags = 0x10;
         notification.InfoTitle = "Scrap is in the tray";
         notification.Info = "Scrap is still running. Click its tray icon to reopen it, or right-click and choose Quit Scrap to exit.";
         notification.InfoFlags = 1;
