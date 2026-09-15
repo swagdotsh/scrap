@@ -187,7 +187,7 @@ struct ContentView: View {
         if trackCount == 0 {
             return Text("You've scrobbled ") + linkedName(track.artist, url: track.artistURL).bold() + Text(" \(artistCount) times, but not this track.")
         }
-        return Text("You've scrobbled to ") + linkedName(track.artist, url: track.artistURL).bold() + Text(" \(artistCount) times and ") + linkedName(track.title, url: track.trackURL).bold() + Text(" \(trackCount) times.")
+        return Text("You've scrobbled ") + linkedName(track.artist, url: track.artistURL).bold() + Text(" \(artistCount) times and ") + linkedName(track.title, url: track.trackURL).bold() + Text(" \(trackCount) times.")
     }
 
     private func linkChips(_ links: [MusicLink]) -> some View {

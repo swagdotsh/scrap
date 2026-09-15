@@ -63,7 +63,7 @@ struct scrapTests {
     @Test func listeningHistoryDistinguishesZeroAndUnavailable() {
         #expect(ListeningDetails(artistCount: 0, trackCount: 0).summary(for: track) == "You've never scrobbled Artist before.")
         #expect(ListeningDetails(artistCount: 12, trackCount: 0).summary(for: track) == "You've scrobbled Artist 12 times, but not this track.")
-        #expect(ListeningDetails(artistCount: 12, trackCount: 3).summary(for: track) == "You've scrobbled to Artist 12 times and A&B + C 3 times.")
+        #expect(ListeningDetails(artistCount: 12, trackCount: 3).summary(for: track) == "You've scrobbled Artist 12 times and A&B + C 3 times.")
         #expect(ListeningDetails().summary(for: track) == "Listening history unavailable.")
     }
 
