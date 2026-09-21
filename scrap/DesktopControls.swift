@@ -95,7 +95,7 @@ final class PreferencesController {
 
     func show(client: LastFMClient) {
         if window == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 330, height: 100), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 190), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Preferences"
             window.isReleasedWhenClosed = false
             window.contentViewController = NSHostingController(rootView: PreferencesView(client: client))
@@ -115,14 +115,20 @@ final class PreferencesController {
 private struct PreferencesView: View {
     @ObservedObject var client: LastFMClient
     @AppStorage("showInDock") private var showInDock = true
+    @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
+    @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Toggle("Show Scrap in the Dock", isOn: $showInDock)
                 .onChange(of: showInDock) { _, _ in PreferencesController.applyDockPreference() }
+            Divider()
+            Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
+            Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
+            Divider()
             Button("Sign out") { client.signOut() }
                 .disabled(client.sessionKey == nil || client.isBusy || client.isSending)
             Text(client.status).font(.caption).foregroundStyle(.secondary)
-        }.padding(24).frame(width: 330)
+        }.padding(24).frame(width: 380)
 
     }
 }

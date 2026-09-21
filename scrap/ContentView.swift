@@ -48,6 +48,15 @@ struct ContentView: View {
                     .accessibilityAddTraits(selection == page ? .isSelected : [])
                 }
                 Spacer()
+                Button {
+                    PreferencesController.shared.show(client: client)
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
                 if isMenuBar {
                     Button("Quit Scrap") { NSApplication.shared.terminate(nil) }
                         .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary).padding(10)

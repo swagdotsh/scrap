@@ -102,4 +102,45 @@ struct scrapTests {
     @Test func formEncodingPreservesSpecialCharacters() {
         #expect(LastFMClient.formBody(["track": "A&B + C=é"]) == "track=A%26B%20%2B%20C%3D%C3%A9")
     }
+
+    @Test func submissionMetadataCanCleanAlbumAndArtistNames() {
+        let collaboration = PlayingTrack(
+            title: "No Church in the Wild",
+            artist: "JAY-Z & Kanye West",
+            album: "Watch the Throne - EP",
+            duration: 272
+        )
+
+        let unchanged = LastFMClient.metadata(
+            for: collaboration,
+            removeAlbumTypeSuffix: false,
+            usePrimaryArtist: false
+        )
+        #expect(unchanged["artist"] == "JAY-Z & Kanye West")
+        #expect(unchanged["album"] == "Watch the Throne - EP")
+
+        let cleaned = LastFMClient.metadata(
+            for: collaboration,
+            removeAlbumTypeSuffix: true,
+            usePrimaryArtist: true
+        )
+        #expect(cleaned["artist"] == "JAY-Z")
+        #expect(cleaned["album"] == "Watch the Throne")
+
+        let single = PlayingTrack(title: "Song", artist: "Artist", album: "Song - Single", duration: 180)
+        #expect(LastFMClient.metadata(for: single, removeAlbumTypeSuffix: true, usePrimaryArtist: true)["album"] == "Song")
+
+        let threeArtists = PlayingTrack(
+            title: "Ran To Atlanta",
+            artist: "Drake, Future & Molly Santana",
+            album: "Ran To Atlanta - Single",
+            duration: 180
+        )
+        let threeArtistsMetadata = LastFMClient.metadata(
+            for: threeArtists,
+            removeAlbumTypeSuffix: true,
+            usePrimaryArtist: true
+        )
+        #expect(threeArtistsMetadata["artist"] == "Drake")
+    }
 }

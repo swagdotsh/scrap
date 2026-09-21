@@ -71,6 +71,11 @@ final class LastFMClient: ObservableObject {
     private var queue: [Submission] = []
     private let defaults: UserDefaults
 
+    private enum DefaultsKey {
+        static let removeAlbumTypeSuffix = "removeAlbumTypeSuffix"
+        static let usePrimaryArtist = "usePrimaryArtist"
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: "pendingScrobbles"),
@@ -208,7 +213,35 @@ final class LastFMClient: ObservableObject {
     }
 
     private func metadata(_ track: PlayingTrack) -> [String: String] {
-        var params = ["track": track.title, "artist": track.artist, "album": track.album]
+        Self.metadata(
+            for: track,
+            removeAlbumTypeSuffix: defaults.bool(forKey: DefaultsKey.removeAlbumTypeSuffix),
+            usePrimaryArtist: defaults.bool(forKey: DefaultsKey.usePrimaryArtist)
+        )
+    }
+
+    static func metadata(
+        for track: PlayingTrack,
+        removeAlbumTypeSuffix: Bool,
+        usePrimaryArtist: Bool
+    ) -> [String: String] {
+        var album = track.album
+        if removeAlbumTypeSuffix {
+            for suffix in [" - Single", " - EP"] where album.hasSuffix(suffix) {
+                album.removeLast(suffix.count)
+                break
+            }
+        }
+
+        var artist = track.artist
+        if usePrimaryArtist {
+            let separators = [artist.range(of: ", "), artist.range(of: " & ")].compactMap { $0 }
+            if let separator = separators.min(by: { $0.lowerBound < $1.lowerBound }) {
+                artist = String(artist[..<separator.lowerBound])
+            }
+        }
+
+        var params = ["track": track.title, "artist": artist, "album": album]
         if let duration = track.duration { params["duration"] = String(Int(duration)) }
         return params
     }

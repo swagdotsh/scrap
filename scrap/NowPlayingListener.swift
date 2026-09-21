@@ -34,7 +34,7 @@ final class NowPlayingListener: ObservableObject {
         guard let script = NSAppleScript(source: source) else { return }
         let result = script.executeAndReturnError(&error)
         if let error {
-            errorMessage = (error[NSAppleScript.errorMessage] as? String) ?? "Allow Scrap to read Music in System Settings → Privacy & Security → Automation."
+            errorMessage = (error[NSAppleScript.errorMessage] as? String) ?? "Allow scrap to read Music in System Settings → Privacy & Security → Automation."
             publish(nil, playing: false)
             return
         }
