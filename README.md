@@ -45,6 +45,7 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 - Menu bar / taskbar access
 - Optional Dock icon (macOS)
+- Automatic checks for new stable macOS releases, with a manual check in Preferences
 
 > [!NOTE]
 > Windows support is in beta and is mostly unsupported due to macOS being the main development platform. 
@@ -68,7 +69,7 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 ### macOS
 
-1. Download `scrap-v1.1-universal.zip` from [Releases](https://github.com/swagdotsh/scrap/releases) (or get it from the [website](https://scrap.swagrelated.com/downloads) that works too)
+1. Download `scrap-v1.2-universal.zip` from [Releases](https://github.com/swagdotsh/scrap/releases) (or get it from the [website](https://scrap.swagrelated.com/downloads) that works too)
 2. Extract the ZIP and drag `Scrap.app` into your Applications folder
 3. Open scrap
 4. Open Apple Music and play something

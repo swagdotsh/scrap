@@ -17,6 +17,7 @@ struct ContentView: View {
     @ObservedObject var listener: NowPlayingListener
     @ObservedObject var engine: ScrobbleEngine
     @ObservedObject var client: LastFMClient
+    @ObservedObject var updateChecker: UpdateChecker
     var isMenuBar = false
     @State private var selection: Page = .nowPlaying
     @State private var details: ListeningDetails?
@@ -49,7 +50,7 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button {
-                    PreferencesController.shared.show(client: client)
+                    PreferencesController.shared.show(client: client, updateChecker: updateChecker)
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                         .frame(maxWidth: .infinity, alignment: .leading)

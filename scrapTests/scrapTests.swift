@@ -6,6 +6,15 @@ import Testing
 struct scrapTests {
     private let track = PlayingTrack(title: "A&B + C", artist: "Artist", album: "Album", duration: 60)
 
+    @Test func updateVersionsCompareNumerically() {
+        #expect(UpdateChecker.versionComponents("v1.10.0") == [1, 10, 0])
+        #expect(UpdateChecker.versionComponents("1.2.3") == [1, 2, 3])
+        #expect(UpdateChecker.versionComponents("v1.2-beta") == nil)
+        #expect(UpdateChecker.isNewer([1, 10], than: [1, 9, 9]))
+        #expect(!UpdateChecker.isNewer([1, 1, 0], than: [1, 1]))
+        #expect(!UpdateChecker.isNewer([1, 0], than: [1, 1]))
+    }
+
     @Test func pausesDoNotCountAndRepeatStartsANewScrobble() {
         let engine = ScrobbleEngine()
         let start = Date(timeIntervalSince1970: 1000)

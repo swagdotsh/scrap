@@ -18,7 +18,7 @@ final class DesktopControls: NSObject {
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: ContentView(listener: model.listener, engine: model.engine, client: model.client, isMenuBar: true))
+        popover.contentViewController = NSHostingController(rootView: ContentView(listener: model.listener, engine: model.engine, client: model.client, updateChecker: model.updateChecker, isMenuBar: true))
     }
 
     @objc private func clicked() {
@@ -93,12 +93,12 @@ final class PreferencesController {
     static let shared = PreferencesController()
     private var window: NSWindow?
 
-    func show(client: LastFMClient) {
+    func show(client: LastFMClient, updateChecker: UpdateChecker) {
         if window == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 190), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 260), styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Preferences"
             window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: PreferencesView(client: client))
+            window.contentViewController = NSHostingController(rootView: PreferencesView(client: client, updateChecker: updateChecker))
             window.center()
             self.window = window
         }
@@ -114,6 +114,7 @@ final class PreferencesController {
 
 private struct PreferencesView: View {
     @ObservedObject var client: LastFMClient
+    @ObservedObject var updateChecker: UpdateChecker
     @AppStorage("showInDock") private var showInDock = true
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
@@ -124,6 +125,24 @@ private struct PreferencesView: View {
             Divider()
             Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
             Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
+            Divider()
+            HStack {
+                Text("Version \(updateChecker.currentVersion)")
+                Spacer()
+                Button(updateChecker.isChecking ? "Checking…" : "Check for Updates") {
+                    Task { await updateChecker.checkForUpdates() }
+                }
+                .disabled(updateChecker.isChecking)
+            }
+            if !updateChecker.status.isEmpty {
+                HStack {
+                    Text(updateChecker.status).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if let release = updateChecker.availableRelease {
+                        Link("View Release", destination: release.htmlURL)
+                    }
+                }
+            }
             Divider()
             Button("Sign out") { client.signOut() }
                 .disabled(client.sessionKey == nil || client.isBusy || client.isSending)

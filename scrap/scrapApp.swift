@@ -6,8 +6,10 @@ final class AppModel: ObservableObject {
     let listener = NowPlayingListener()
     let engine = ScrobbleEngine()
     let client = LastFMClient()
+    let updateChecker = UpdateChecker()
     lazy var desktop = DesktopControls(model: self)
     private var friendsTimer: Timer?
+    private var updateTimer: Timer?
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
@@ -25,8 +27,12 @@ final class AppModel: ObservableObject {
         }.store(in: &subscriptions)
         listener.start()
         Task { await client.checkConnection(); await client.retryPending(); await client.refreshFriends() }
+        Task { await updateChecker.checkAutomatically() }
         friendsTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in await self?.client.checkConnection(); await self?.client.refreshFriends() }
+        }
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.updateChecker.checkAutomatically() }
         }
     }
 }
@@ -44,7 +50,7 @@ struct scrapApp: App {
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Preferences…") { PreferencesController.shared.show(client: model.client) }
+                Button("Preferences…") { PreferencesController.shared.show(client: model.client, updateChecker: model.updateChecker) }
                     .keyboardShortcut(",", modifiers: .command)
             }
         }
@@ -56,7 +62,7 @@ private struct MainWindowContent: View {
     @Environment(\.openWindow) private var openWindow
     let model: AppModel
     var body: some View {
-        ContentView(listener: model.listener, engine: model.engine, client: model.client)
+        ContentView(listener: model.listener, engine: model.engine, client: model.client, updateChecker: model.updateChecker)
             .background(HiddenWindowTitle())
             .onAppear {
                 model.desktop.openMainWindow = { openWindow(id: "scrap-main-window") }
@@ -80,6 +86,21 @@ private struct HiddenWindowTitle: NSViewRepresentable {
 
 @MainActor
 final class ScrapAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.main.async {
+            guard let menu = NSApplication.shared.mainMenu else { return }
+            for title in ["File", "Edit", "View"] {
+                if let item = menu.items.first(where: { $0.title == title }) {
+                    menu.removeItem(item)
+                }
+            }
+            if let appMenu = menu.items.first?.submenu,
+               let servicesItem = appMenu.items.first(where: { $0.title == "Services" }) {
+                appMenu.removeItem(servicesItem)
+            }
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
