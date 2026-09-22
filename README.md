@@ -106,8 +106,38 @@ LASTFM_SHARED_SECRET=your_shared_secret
 
 The build copies the last.fm app configuration into the app bundle. People using your build connect their own last.fm accounts.
 
+### Windows (beta)
+
+You'll need a 64-bit Windows PC, the [.NET 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/windows), Apple Music for Windows, and your own [last.fm API credentials](https://www.last.fm/api/account/create). The Windows App SDK version lives on the `windows-app-sdk` branch.
+
+In PowerShell, clone the repository and switch branches:
+
+```powershell
+git clone https://github.com/swagdotsh/scrap.git
+cd scrap
+git switch windows-app-sdk
+```
+
+If `dotnet --version` does not show version 10, install the SDK with `winget install Microsoft.DotNet.SDK.10`, then open a new PowerShell window in the `scrap` folder. Create a `.env` file in that folder with:
+
+```env
+LASTFM_API_KEY=your_api_key
+LASTFM_SHARED_SECRET=your_shared_secret
+```
+
+Build, test, and publish the app:
+
+```powershell
+dotnet build windows/Scrap/Scrap.csproj -p:Platform=x64
+dotnet run --project windows/Scrap.Tests/Scrap.Tests.csproj
+dotnet publish windows/Scrap/Scrap.csproj -c Release -p:Platform=x64 -o windows/publish
+.\windows\publish\Scrap.exe
+```
+
+In Scrap, choose **Connect Last.fm**, approve access in your browser, then return to the app and choose **I've approved it**. Play a track in Apple Music to check playback detection. Closing the window leaves Scrap running in the notification area. Keep the entire `windows/publish` folder together if you move the app; this is an unpackaged build with no installer.
+
 > [!CAUTION]
-> Keep `.env` gitignored. Its contents are included in compiled builds, so don't put personal account credentials or anything "secret" in it.
+> Keep `.env` gitignored. The macOS build includes its contents in the app bundle, and the Windows build copies it beside the executable. Don't put personal account credentials in it.
 
 ---
 
