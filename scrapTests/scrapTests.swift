@@ -6,6 +6,23 @@ import Testing
 struct scrapTests {
     private let track = PlayingTrack(title: "A&B + C", artist: "Artist", album: "Album", duration: 60)
 
+    @Test func spotifyDurationUsesMilliseconds() {
+        #expect(NowPlayingListener.duration(180_000, from: .spotify) == 180)
+        #expect(NowPlayingListener.duration(180, from: .appleMusic) == 180)
+        #expect(NowPlayingListener.duration(0, from: .spotify) == nil)
+    }
+
+    @Test func untitledPlaybackUsesProjectAsAlbumAndRequiresArtist() {
+        let playing = UntitledPlayback.parse("Take Advantage (prod. andrzxz + Tenguzavr)\n 0:46  /  2:29 What's Left? · zekkie", isPlaying: true)
+        #expect(playing?.track.title == "Take Advantage (prod. andrzxz + Tenguzavr)")
+        #expect(playing?.track.artist == "zekkie")
+        #expect(playing?.track.album == "What's Left?")
+        #expect(playing?.track.duration == 149)
+        #expect(playing?.position == 46)
+        #expect(playing?.isPlaying == true)
+        #expect(UntitledPlayback.parse("Song\n 0:46 / 2:29 Project · ", isPlaying: true) == nil)
+    }
+
     @Test func updateVersionsCompareNumerically() {
         #expect(UpdateChecker.versionComponents("v1.10.0") == [1, 10, 0])
         #expect(UpdateChecker.versionComponents("1.2.3") == [1, 2, 3])

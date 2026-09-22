@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Combine
 import SwiftUI
 
@@ -176,8 +177,12 @@ private struct PreferencesView: View {
     @AppStorage("showInDock") private var showInDock = true
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("scrobbleAppleMusic") private var scrobbleAppleMusic = true
+    @AppStorage("scrobbleSpotify") private var scrobbleSpotify = false
+    @AppStorage("scrobbleUntitled") private var scrobbleUntitled = false
     @State private var accountProfile: ListenerProfile?
     @State private var showDeleteConfirmation = false
+    @State private var showUntitledAccessibilityAlert = false
 
     var body: some View {
         Group {
@@ -254,13 +259,42 @@ private struct PreferencesView: View {
     }
 
     private var servicesTab: some View {
-        VStack {
-            Spacer()
-            Text("Coming soon ;)").foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Scrobble music from...")
+                .font(.headline)
+            Toggle("Apple Music", isOn: $scrobbleAppleMusic)
+            Toggle("Spotify", isOn: $scrobbleSpotify)
+            HStack(spacing: 8) {
+                Toggle("[untitled]", isOn: $scrobbleUntitled)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .onChange(of: scrobbleUntitled) { _, enabled in
+                        if enabled && !AXIsProcessTrusted() { showUntitledAccessibilityAlert = true }
+                    }
+                Text("Experimental")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.quaternary, in: Capsule())
+            }
+            Text("[untitled] needs Accessibility access. Project names are used as album names.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("If Spotify is already connected to Last.fm, enabling it here may create duplicate scrobbles.")
+                .font(.caption).foregroundStyle(.secondary)
             Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
+        .alert("Allow Accessibility for [untitled]", isPresented: $showUntitledAccessibilityAlert) {
+            Button("Open Accessibility Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Later", role: .cancel) { }
+        } message: {
+            Text("Scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on Scrap under Privacy & Security -> Device Control and Data Access.")
+        }
     }
 
     private var updatesTab: some View {

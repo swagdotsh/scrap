@@ -23,7 +23,7 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 ### Scrobbling
 
-- Scrobble songs playing in Apple Music & iTunes (Windows) to last.fm
+- Scrobble songs playing in Apple Music or Spotify on macOS, and iTunes on Windows, to last.fm
 - Update your last.fm now-playing status
 - Queue unsuccessful scrobbles for retry
 
@@ -56,7 +56,7 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 - **macOS 14.6 (Sonoma) or above**
 - **Apple silicon or Intel Mac** (universal build means works for both, but mayyy not be supported forever!)
-- **Apple Music** for playback (works whether you're subscribed or not)
+- **Apple Music or Spotify** for playback
 - A **last.fm account**
 
 ### Windows (beta)
@@ -77,6 +77,10 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 6. Click **Connect last.fm**, approve access in your browser, then return to scrap and click **I've approved it**
 
 That's it. Keep scrap running while you listen.
+
+To scrobble Spotify on Mac, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–Last.fm connection.
+
+To scrobble [untitled] on Mac, enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. Scrap uses the [untitled] project name as the Last.fm album name. [untitled] is off by default.
 
 > [!IMPORTANT]
 > The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings -> Privacy & Security -> Open Anyway** after trying to open it.
@@ -114,7 +118,7 @@ The build copies the last.fm app configuration into the app bundle. People using
 
 ### Nothing playing
 
-- Make sure you're playing something in Apple Music
+- Make sure you're playing something in an enabled app (Apple Music or Spotify)
 - Check **System Settings -> Privacy & Security -> Automation** (macOS)
 - Allow scrap to access Music (macOS)
 

@@ -140,6 +140,12 @@ struct ContentView: View {
 
     private var nowPlaying: some View {
         VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 10) {
+        if let source = listener.source {
+            Text("Now playing from \(source.name)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
         HStack(alignment: .top, spacing: 20) {
             Group {
                 if let image = details?.coverImage {
@@ -169,9 +175,10 @@ struct ContentView: View {
                     if !listener.isPlaying { Text("Paused").font(.caption).foregroundStyle(.secondary) }
                 } else {
                     Text("Nothing playing").font(.title2.bold())
-                    Text("Play something in Apple Music.").foregroundStyle(.secondary)
+                    Text("Play something in an enabled music app.").foregroundStyle(.secondary)
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
+        }
         }
         if let track = listener.track, let details {
             aboutArtist(track.artist, details: details.artist)
