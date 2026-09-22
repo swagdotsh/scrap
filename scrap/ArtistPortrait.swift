@@ -12,7 +12,6 @@ final class ArtistPortraitStore {
         let key = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if let entry = cache[key], entry.expires > Date() { return entry.url }
         if let task = pending[key] { return await task.value }
-        // The shared free API allows 30 requests/minute. Both app surfaces share this queue.
         let delay = max(0, nextRequest.timeIntervalSinceNow)
         nextRequest = Date().addingTimeInterval(delay + 2.1)
         let task = Task<URL?, Never> {

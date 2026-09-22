@@ -305,6 +305,38 @@ struct ContentView: View {
     private var scrobbles: some View {
         VStack(alignment: .leading, spacing: 14) {
             pageHeader("Scrobbles")
+            if listener.isPlaying, let track = listener.track {
+                Link(destination: track.trackURL) {
+                    HStack(spacing: 12) {
+                        Group {
+                            if let cover = details?.coverImage {
+                                Image(nsImage: cover).resizable().scaledToFill()
+                            } else {
+                                RoundedRectangle(cornerRadius: 6).fill(.quaternary)
+                                    .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(track.title).font(.headline).lineLimit(1)
+                                Spacer(minLength: 0)
+                                Text("Now playing")
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Color.accentColor.opacity(0.18), in: Capsule())
+                            }
+                            Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(10)
+                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .help("Open \(track.title) on Last.fm")
+            }
             if isLoading { ProgressView() }
             if let pageError { Text(pageError).foregroundStyle(.red) }
             if client.pendingCount > 0 {

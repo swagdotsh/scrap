@@ -1,4 +1,3 @@
-// !$*UTF8*$!
 {
 	archiveVersion = 1;
 	classes = {
@@ -6,170 +5,157 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXContainerItemProxy section */
-		F66A64CE303493E6001A1CF1 /* PBXContainerItemProxy */ = {
+		F66A64CE303493E6001A1CF1 = {
 			isa = PBXContainerItemProxy;
-			containerPortal = F66A64B8303493E5001A1CF1 /* Project object */;
+			containerPortal = F66A64B8303493E5001A1CF1;
 			proxyType = 1;
 			remoteGlobalIDString = F66A64BF303493E5001A1CF1;
 			remoteInfo = scrap;
 		};
-		F66A64D8303493E6001A1CF1 /* PBXContainerItemProxy */ = {
+		F66A64D8303493E6001A1CF1 = {
 			isa = PBXContainerItemProxy;
-			containerPortal = F66A64B8303493E5001A1CF1 /* Project object */;
+			containerPortal = F66A64B8303493E5001A1CF1;
 			proxyType = 1;
 			remoteGlobalIDString = F66A64BF303493E5001A1CF1;
 			remoteInfo = scrap;
 		};
-/* End PBXContainerItemProxy section */
 
-/* Begin PBXFileReference section */
-		F606D2C6304E9C3B006A3B2D /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		F66A64C0303493E5001A1CF1 /* scrap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = scrap.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F66A64CD303493E6001A1CF1 /* scrapTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F66A64D7303493E6001A1CF1 /* scrapUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
+		F606D2C6304E9C3B006A3B2D = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		F66A64C0303493E5001A1CF1 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = scrap.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F66A64CD303493E6001A1CF1 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F66A64D7303493E6001A1CF1 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		F66A64C2303493E5001A1CF1 /* scrap */ = {
+		F66A64C2303493E5001A1CF1 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = scrap;
 			sourceTree = "<group>";
 		};
-		F66A64D0303493E6001A1CF1 /* scrapTests */ = {
+		F66A64D0303493E6001A1CF1 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = scrapTests;
 			sourceTree = "<group>";
 		};
-		F66A64DA303493E6001A1CF1 /* scrapUITests */ = {
+		F66A64DA303493E6001A1CF1 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = scrapUITests;
 			sourceTree = "<group>";
 		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		F66A64BD303493E5001A1CF1 /* Frameworks */ = {
+		F66A64BD303493E5001A1CF1 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64CA303493E6001A1CF1 /* Frameworks */ = {
+		F66A64CA303493E6001A1CF1 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64D4303493E6001A1CF1 /* Frameworks */ = {
+		F66A64D4303493E6001A1CF1 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXGroup section */
 		F66A64B7303493E5001A1CF1 = {
 			isa = PBXGroup;
 			children = (
-				F66A64C2303493E5001A1CF1 /* scrap */,
-				F66A64D0303493E6001A1CF1 /* scrapTests */,
-				F66A64DA303493E6001A1CF1 /* scrapUITests */,
-				F66A64C1303493E5001A1CF1 /* Products */,
-				F606D2C6304E9C3B006A3B2D /* .gitignore */,
+				F66A64C2303493E5001A1CF1 ,
+				F66A64D0303493E6001A1CF1 ,
+				F66A64DA303493E6001A1CF1 ,
+				F66A64C1303493E5001A1CF1 ,
+				F606D2C6304E9C3B006A3B2D ,
 			);
 			sourceTree = "<group>";
 		};
-		F66A64C1303493E5001A1CF1 /* Products */ = {
+		F66A64C1303493E5001A1CF1 = {
 			isa = PBXGroup;
 			children = (
-				F66A64C0303493E5001A1CF1 /* scrap.app */,
-				F66A64CD303493E6001A1CF1 /* scrapTests.xctest */,
-				F66A64D7303493E6001A1CF1 /* scrapUITests.xctest */,
+				F66A64C0303493E5001A1CF1 ,
+				F66A64CD303493E6001A1CF1 ,
+				F66A64D7303493E6001A1CF1 ,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-/* End PBXGroup section */
 
-/* Begin PBXNativeTarget section */
-		F66A64BF303493E5001A1CF1 /* scrap */ = {
+		F66A64BF303493E5001A1CF1 = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F66A64E1303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrap" */;
+			buildConfigurationList = F66A64E1303493E6001A1CF1;
 			buildPhases = (
-				F66A64BC303493E5001A1CF1 /* Sources */,
-				F66A64BD303493E5001A1CF1 /* Frameworks */,
-				F66A64BE303493E5001A1CF1 /* Resources */,
-				A01100000000000000000001 /* App configuration */,
+				F66A64BC303493E5001A1CF1 ,
+				F66A64BD303493E5001A1CF1 ,
+				F66A64BE303493E5001A1CF1 ,
+				A01100000000000000000001 ,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				F66A64C2303493E5001A1CF1 /* scrap */,
+				F66A64C2303493E5001A1CF1 ,
 			);
 			name = scrap;
 			packageProductDependencies = (
 			);
 			productName = scrap;
-			productReference = F66A64C0303493E5001A1CF1 /* scrap.app */;
+			productReference = F66A64C0303493E5001A1CF1;
 			productType = "com.apple.product-type.application";
 		};
-		F66A64CC303493E6001A1CF1 /* scrapTests */ = {
+		F66A64CC303493E6001A1CF1 = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F66A64E4303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrapTests" */;
+			buildConfigurationList = F66A64E4303493E6001A1CF1;
 			buildPhases = (
-				F66A64C9303493E6001A1CF1 /* Sources */,
-				F66A64CA303493E6001A1CF1 /* Frameworks */,
-				F66A64CB303493E6001A1CF1 /* Resources */,
+				F66A64C9303493E6001A1CF1 ,
+				F66A64CA303493E6001A1CF1 ,
+				F66A64CB303493E6001A1CF1 ,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				F66A64CF303493E6001A1CF1 /* PBXTargetDependency */,
+				F66A64CF303493E6001A1CF1 ,
 			);
 			fileSystemSynchronizedGroups = (
-				F66A64D0303493E6001A1CF1 /* scrapTests */,
+				F66A64D0303493E6001A1CF1 ,
 			);
 			name = scrapTests;
 			packageProductDependencies = (
 			);
 			productName = scrapTests;
-			productReference = F66A64CD303493E6001A1CF1 /* scrapTests.xctest */;
+			productReference = F66A64CD303493E6001A1CF1;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		F66A64D6303493E6001A1CF1 /* scrapUITests */ = {
+		F66A64D6303493E6001A1CF1 = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F66A64E7303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrapUITests" */;
+			buildConfigurationList = F66A64E7303493E6001A1CF1;
 			buildPhases = (
-				F66A64D3303493E6001A1CF1 /* Sources */,
-				F66A64D4303493E6001A1CF1 /* Frameworks */,
-				F66A64D5303493E6001A1CF1 /* Resources */,
+				F66A64D3303493E6001A1CF1 ,
+				F66A64D4303493E6001A1CF1 ,
+				F66A64D5303493E6001A1CF1 ,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				F66A64D9303493E6001A1CF1 /* PBXTargetDependency */,
+				F66A64D9303493E6001A1CF1 ,
 			);
 			fileSystemSynchronizedGroups = (
-				F66A64DA303493E6001A1CF1 /* scrapUITests */,
+				F66A64DA303493E6001A1CF1 ,
 			);
 			name = scrapUITests;
 			packageProductDependencies = (
 			);
 			productName = scrapUITests;
-			productReference = F66A64D7303493E6001A1CF1 /* scrapUITests.xctest */;
+			productReference = F66A64D7303493E6001A1CF1;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-/* End PBXNativeTarget section */
 
-/* Begin PBXProject section */
-		F66A64B8303493E5001A1CF1 /* Project object */ = {
+		F66A64B8303493E5001A1CF1 = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -189,7 +175,7 @@
 					};
 				};
 			};
-			buildConfigurationList = F66A64BB303493E5001A1CF1 /* Build configuration list for PBXProject "scrap" */;
+			buildConfigurationList = F66A64BB303493E5001A1CF1;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -199,43 +185,39 @@
 			mainGroup = F66A64B7303493E5001A1CF1;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = F66A64C1303493E5001A1CF1 /* Products */;
+			productRefGroup = F66A64C1303493E5001A1CF1;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F66A64BF303493E5001A1CF1 /* scrap */,
-				F66A64CC303493E6001A1CF1 /* scrapTests */,
-				F66A64D6303493E6001A1CF1 /* scrapUITests */,
+				F66A64BF303493E5001A1CF1 ,
+				F66A64CC303493E6001A1CF1 ,
+				F66A64D6303493E6001A1CF1 ,
 			);
 		};
-/* End PBXProject section */
 
-/* Begin PBXResourcesBuildPhase section */
-		F66A64BE303493E5001A1CF1 /* Resources */ = {
+		F66A64BE303493E5001A1CF1 = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64CB303493E6001A1CF1 /* Resources */ = {
+		F66A64CB303493E6001A1CF1 = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64D5303493E6001A1CF1 /* Resources */ = {
+		F66A64D5303493E6001A1CF1 = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		A01100000000000000000001 /* App configuration */ = {
+		A01100000000000000000001 = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -251,47 +233,41 @@
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\ncp \"$SRCROOT/.env\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/LastFM.env\"\n";
 		};
-/* End PBXShellScriptBuildPhase section */
 
-/* Begin PBXSourcesBuildPhase section */
-		F66A64BC303493E5001A1CF1 /* Sources */ = {
+		F66A64BC303493E5001A1CF1 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64C9303493E6001A1CF1 /* Sources */ = {
+		F66A64C9303493E6001A1CF1 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		F66A64D3303493E6001A1CF1 /* Sources */ = {
+		F66A64D3303493E6001A1CF1 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		F66A64CF303493E6001A1CF1 /* PBXTargetDependency */ = {
+		F66A64CF303493E6001A1CF1 = {
 			isa = PBXTargetDependency;
-			target = F66A64BF303493E5001A1CF1 /* scrap */;
-			targetProxy = F66A64CE303493E6001A1CF1 /* PBXContainerItemProxy */;
+			target = F66A64BF303493E5001A1CF1;
+			targetProxy = F66A64CE303493E6001A1CF1;
 		};
-		F66A64D9303493E6001A1CF1 /* PBXTargetDependency */ = {
+		F66A64D9303493E6001A1CF1 = {
 			isa = PBXTargetDependency;
-			target = F66A64BF303493E5001A1CF1 /* scrap */;
-			targetProxy = F66A64D8303493E6001A1CF1 /* PBXContainerItemProxy */;
+			target = F66A64BF303493E5001A1CF1;
+			targetProxy = F66A64D8303493E6001A1CF1;
 		};
-/* End PBXTargetDependency section */
 
-/* Begin XCBuildConfiguration section */
-		F66A64DF303493E6001A1CF1 /* Debug */ = {
+		F66A64DF303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -354,7 +330,7 @@
 			};
 			name = Debug;
 		};
-		F66A64E0303493E6001A1CF1 /* Release */ = {
+		F66A64E0303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -409,7 +385,7 @@
 			};
 			name = Release;
 		};
-		F66A64E2303493E6001A1CF1 /* Debug */ = {
+		F66A64E2303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
@@ -458,7 +434,7 @@
 			};
 			name = Debug;
 		};
-		F66A64E3303493E6001A1CF1 /* Release */ = {
+		F66A64E3303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
@@ -507,7 +483,7 @@
 			};
 			name = Release;
 		};
-		F66A64E5303493E6001A1CF1 /* Debug */ = {
+		F66A64E5303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -533,7 +509,7 @@
 			};
 			name = Debug;
 		};
-		F66A64E6303493E6001A1CF1 /* Release */ = {
+		F66A64E6303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -559,7 +535,7 @@
 			};
 			name = Release;
 		};
-		F66A64E8303493E6001A1CF1 /* Debug */ = {
+		F66A64E8303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -584,7 +560,7 @@
 			};
 			name = Debug;
 		};
-		F66A64E9303493E6001A1CF1 /* Release */ = {
+		F66A64E9303493E6001A1CF1 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -609,46 +585,44 @@
 			};
 			name = Release;
 		};
-/* End XCBuildConfiguration section */
 
-/* Begin XCConfigurationList section */
-		F66A64BB303493E5001A1CF1 /* Build configuration list for PBXProject "scrap" */ = {
+		F66A64BB303493E5001A1CF1 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F66A64DF303493E6001A1CF1 /* Debug */,
-				F66A64E0303493E6001A1CF1 /* Release */,
+				F66A64DF303493E6001A1CF1 ,
+				F66A64E0303493E6001A1CF1 ,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F66A64E1303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrap" */ = {
+		F66A64E1303493E6001A1CF1 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F66A64E2303493E6001A1CF1 /* Debug */,
-				F66A64E3303493E6001A1CF1 /* Release */,
+				F66A64E2303493E6001A1CF1 ,
+				F66A64E3303493E6001A1CF1 ,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F66A64E4303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrapTests" */ = {
+		F66A64E4303493E6001A1CF1 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F66A64E5303493E6001A1CF1 /* Debug */,
-				F66A64E6303493E6001A1CF1 /* Release */,
+				F66A64E5303493E6001A1CF1 ,
+				F66A64E6303493E6001A1CF1 ,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F66A64E7303493E6001A1CF1 /* Build configuration list for PBXNativeTarget "scrapUITests" */ = {
+		F66A64E7303493E6001A1CF1 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F66A64E8303493E6001A1CF1 /* Debug */,
-				F66A64E9303493E6001A1CF1 /* Release */,
+				F66A64E8303493E6001A1CF1 ,
+				F66A64E9303493E6001A1CF1 ,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-/* End XCConfigurationList section */
+
 	};
-	rootObject = F66A64B8303493E5001A1CF1 /* Project object */;
+	rootObject = F66A64B8303493E5001A1CF1;
 }

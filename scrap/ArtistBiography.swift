@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// TextKit reserves room for the portrait, then uses the full width below it.
 struct ArtistBiography: View {
     let name: String
     let text: String

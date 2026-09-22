@@ -88,6 +88,7 @@ final class LastFMClient: ObservableObject {
         guard !isBusy, !isSending else { return }
         do {
             try KeychainHelper.delete(key: "lastfm_session_key")
+            try KeychainHelper.delete(key: "lastfm_username")
             sessionKey = nil
             lastFMReachable = nil
             username = nil
@@ -97,9 +98,12 @@ final class LastFMClient: ObservableObject {
             friendsUpdatedAt = nil
             friendsAttemptedAt = nil
             friendsError = nil
-            try KeychainHelper.delete(key: "lastfm_username")
-            status = "Signed out."
-        } catch { status = "Could not finish signing out: \(error.localizedDescription)" }
+            status = "Signed out. Last.fm data removed from Keychain."
+        } catch {
+            sessionKey = KeychainHelper.load(key: "lastfm_session_key")
+            username = KeychainHelper.load(key: "lastfm_username")
+            status = "Could not finish signing out: \(error.localizedDescription)"
+        }
     }
 
     func beginAuth() async {
