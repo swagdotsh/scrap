@@ -24,7 +24,7 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 ### Scrobbling
 
-- Scrobble songs playing in Apple Music or Spotify on macOS, and iTunes on Windows, to last.fm
+- Scrobble songs playing in Apple Music or Spotify on macOS, and Apple Music on Windows, to last.fm
 - Update your last.fm now-playing status
 - Queue unsuccessful scrobbles for retry
 
