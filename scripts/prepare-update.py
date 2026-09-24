@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Package a built macOS app and prepare (never publish) a signed Sparkle feed."""
 import argparse
 import hashlib
 import plistlib
@@ -29,7 +28,7 @@ def version_parts(value):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Package a built macOS app and prepare (never publish) a signed Sparkle feed.")
     parser.add_argument("--app", type=Path, required=True, help="Built universal Release .app")
     parser.add_argument("--sparkle-tools", type=Path, required=True, help="Sparkle artifact bin directory")
     parser.add_argument("--notes", type=Path, help="Optional plain-text release notes")

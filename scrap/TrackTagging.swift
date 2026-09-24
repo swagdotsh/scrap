@@ -56,7 +56,6 @@ final class TagWindowController {
     private var window: NSWindow?
 
     func show(track: PlayingTrack, client: LastFMClient) {
-        // Keep an existing editor (and any in-flight submission) intact.
         if let window, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

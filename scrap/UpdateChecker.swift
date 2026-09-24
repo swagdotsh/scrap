@@ -30,8 +30,6 @@ final class UpdateChecker: ObservableObject {
             .receive(on: RunLoop.main).assign(to: &$lastCheckDate)
     }
 
-    // Start after application launch, independently of whether a window is visible.
-    // Sparkle owns scheduling, download verification, installation, and relaunch.
     func start() {
         guard !started else { return }
         do {

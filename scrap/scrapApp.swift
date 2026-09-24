@@ -63,7 +63,6 @@ final class ScrapAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Login launches may never construct a SwiftUI window. Start independently.
         _ = model.desktop
         PreferencesController.applyDockPreference()
         AppAppearance.applySaved()
