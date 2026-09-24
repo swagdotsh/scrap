@@ -6,6 +6,23 @@ import Testing
 struct scrapTests {
     private let track = PlayingTrack(title: "A&B + C", artist: "Artist", album: "Album", duration: 60)
 
+    @Test func tagsTrimWhitespaceAndDeduplicateWithoutChangingSpelling() throws {
+        #expect(try LastFMClient.parseTags(" hip hop, , Hip Hop, electronic & pop, 日本語 ") == ["hip hop", "electronic & pop", "日本語"])
+    }
+
+    @Test func tagsEnforceLastFMLimit() throws {
+        #expect(throws: NSError.self) { try LastFMClient.parseTags(" , \n ") }
+        #expect(try LastFMClient.parseTags((1...10).map { "tag\($0)" }.joined(separator: ",")).count == 10)
+        #expect(throws: NSError.self) { try LastFMClient.parseTags((1...11).map { "tag\($0)" }.joined(separator: ",")) }
+    }
+
+    @Test func artistTagsNeverIncludeTrackParameter() {
+        #expect(TagTarget.artist.parameters(for: track) == ["artist": "Artist"])
+        #expect(TagTarget.track.parameters(for: track) == ["artist": "Artist", "track": "A&B + C"])
+        let encoded = LastFMClient.formBody(["tags": "R&B, 日本語 + pop"])
+        #expect(encoded == "tags=R%26B%2C%20%E6%97%A5%E6%9C%AC%E8%AA%9E%20%2B%20pop")
+    }
+
     @Test func spotifyDurationUsesMilliseconds() {
         #expect(NowPlayingListener.duration(180_000, from: .spotify) == 180)
         #expect(NowPlayingListener.duration(180, from: .appleMusic) == 180)
@@ -21,15 +38,6 @@ struct scrapTests {
         #expect(playing?.position == 46)
         #expect(playing?.isPlaying == true)
         #expect(UntitledPlayback.parse("Song\n 0:46 / 2:29 Project · ", isPlaying: true) == nil)
-    }
-
-    @Test func updateVersionsCompareNumerically() {
-        #expect(UpdateChecker.versionComponents("v1.10.0") == [1, 10, 0])
-        #expect(UpdateChecker.versionComponents("1.2.3") == [1, 2, 3])
-        #expect(UpdateChecker.versionComponents("v1.2-beta") == nil)
-        #expect(UpdateChecker.isNewer([1, 10], than: [1, 9, 9]))
-        #expect(!UpdateChecker.isNewer([1, 1, 0], than: [1, 1]))
-        #expect(!UpdateChecker.isNewer([1, 0], than: [1, 1]))
     }
 
     @Test func pausesDoNotCountAndRepeatStartsANewScrobble() {

@@ -41,12 +41,15 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 - All-time top artists, albums & tracks
 - Friends' recent listening activity
 - Love / unlove the currently playing track
+- Tag the current song or artist on Last.fm from the macOS menu bar’s right-click menu; view your tags and community tags before applying up to 10 new tags
 
 ### Desktop controls
 
 - Menu bar / taskbar access
 - Optional Dock icon (macOS)
-- Automatic checks for new stable macOS releases, with a manual check in Preferences
+- Open on logon, with scrobbling initialized even when no window opens (macOS)
+- System, Light, or Dark appearance and adjustable menu bar background opacity in Settings → General (macOS)
+- In-app macOS updates with Sparkle: daily checks, verified downloads, installation and relaunch, plus optional automatic installation
 
 > [!NOTE]
 > Windows support is in beta and is mostly unsupported due to macOS being the main development platform. 
@@ -89,6 +92,12 @@ To scrobble [untitled] on Mac, enable it in **Preferences → Services** and all
 > Visit [Apple Support](https://support.apple.com/en-gb/102445) for more info.
 
 ---
+
+## macOS updates
+
+Starting with 1.4, **Settings → Updates** can download and install updates inside Scrap. Daily checks are enabled by default; automatic download and installation can be enabled there too. Earlier versions need one final manual update to get this feature.
+
+Maintainers: see [Preparing and publishing updates](docs/updates.md) for the signed release and feed workflow.
 
 ## Building from Source
 

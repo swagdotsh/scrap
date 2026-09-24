@@ -10,7 +10,8 @@ final class DesktopControls: NSObject {
     private let popover = NSPopover()
     private var menuTrack: PlayingTrack?
     private var menuLoved: Bool?
-    var openMainWindow: (() -> Void)?
+    private var mainWindow: NSWindow?
+    private let tagController = TagWindowController()
 
     init(model: AppModel) {
         self.model = model
@@ -57,6 +58,7 @@ final class DesktopControls: NSObject {
                     } catch { loveItem.title = "Loved status unavailable" }
                 }
             } else { loveItem.title = "Love track" }
+            add("Tag…", action: #selector(tagTrack), to: menu, enabled: menuTrack != nil && model.client.canScrobble)
             add("Share", action: #selector(shareTrack), to: menu, enabled: menuTrack != nil)
             add("View on last.fm", action: #selector(viewTrack), to: menu, enabled: menuTrack != nil)
             menu.addItem(.separator())
@@ -85,9 +87,39 @@ final class DesktopControls: NSObject {
     }
 
     @objc private func openScrap() {
-        openMainWindow?()
+        showMainWindow()
         NSApp.activate(ignoringOtherApps: true)
     }
+    func showMainWindow() {
+        popover.performClose(nil)
+        if let mainWindow {
+            if mainWindow.isMiniaturized { mainWindow.deminiaturize(nil) }
+            mainWindow.makeKeyAndOrderFront(nil)
+        } else {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 350), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+            window.identifier = NSUserInterfaceItemIdentifier("scrap-main-window")
+            window.title = "Scrap"
+            window.titleVisibility = .hidden
+            window.isReleasedWhenClosed = false
+            window.contentViewController = NSHostingController(rootView: ContentView(listener: model.listener, engine: model.engine, client: model.client, updateChecker: model.updateChecker))
+            window.styleMask.remove(.resizable)
+            window.collectionBehavior = [.fullScreenNone]
+            window.tabbingMode = .disallowed
+            window.standardWindowButton(.zoomButton)?.isEnabled = false
+            window.contentMinSize = NSSize(width: 680, height: 350)
+            window.contentMaxSize = NSSize(width: 680, height: 350)
+            mainWindow = window
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func tagTrack() {
+        guard let track = menuTrack, model.client.canScrobble else { return }
+        tagController.show(track: track, client: model.client)
+    }
+
     @objc private func toggleScrobbling() {
         model.engine.suspendTiming()
         model.client.scrobblingPaused.toggle()
@@ -174,6 +206,9 @@ private struct PreferencesView: View {
     @ObservedObject var client: LastFMClient
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var controller: PreferencesController
+    @StateObject private var loginItem = LoginItemSettings()
+    @AppStorage("appAppearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
     @AppStorage("showInDock") private var showInDock = true
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
@@ -197,15 +232,39 @@ private struct PreferencesView: View {
     }
 
     private var generalTab: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Toggle("Show Scrap in the Dock", isOn: $showInDock)
-                .onChange(of: showInDock) { _, _ in PreferencesController.applyDockPreference() }
-            Divider()
-            Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
-            Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
-            Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle("Show Scrap in the Dock", isOn: $showInDock)
+                    .onChange(of: showInDock) { _, _ in PreferencesController.applyDockPreference() }
+                Toggle("Open Scrap on logon", isOn: Binding(get: { loginItem.isEnabled }, set: { loginItem.setEnabled($0) }))
+                if loginItem.needsApproval {
+                    HStack {
+                        Text("Allow Scrap in macOS Login Items to finish enabling this.").font(.caption)
+                        Button("Open Login Items") { loginItem.openSettings() }
+                    }
+                }
+                if let error = loginItem.error { Text(error).font(.caption).foregroundStyle(.red) }
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppAppearance.allCases, id: \.rawValue) { Text($0.rawValue).tag($0.rawValue) }
+                }
+                .onChange(of: appearance) { _, _ in AppAppearance.applySaved() }
+                HStack {
+                    Text("Menu bar background")
+                    Slider(value: $menuBarBackgroundOpacity, in: 0.5...1)
+                    Text(menuBarBackgroundOpacity, format: .percent.precision(.fractionLength(0)))
+                        .monospacedDigit().frame(width: 40)
+                }
+                .help("Higher opacity improves text readability. 100% gives a solid background.")
+                Divider()
+                Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
+                Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
         }
-        .padding(16)
+        .onAppear { loginItem.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in loginItem.refresh() }
     }
 
     private var accountsTab: some View {
@@ -302,19 +361,27 @@ private struct PreferencesView: View {
             HStack {
                 Text("Version \(updateChecker.currentVersion)")
                 Spacer()
-                Button(updateChecker.isChecking ? "Checking…" : "Check for Updates") {
-                    Task { await updateChecker.checkForUpdates() }
-                }
-                .disabled(updateChecker.isChecking)
+                Button("Check for Updates…") { updateChecker.checkForUpdates() }
+                    .disabled(!updateChecker.canCheckForUpdates)
+            }
+            Toggle("Automatically check for updates", isOn: Binding(
+                get: { updateChecker.automaticallyChecksForUpdates },
+                set: { updateChecker.setAutomaticChecks($0) }
+            ))
+            Toggle("Automatically download and install updates", isOn: Binding(
+                get: { updateChecker.automaticallyDownloadsUpdates },
+                set: { updateChecker.setAutomaticDownloads($0) }
+            ))
+            .disabled(!updateChecker.automaticallyChecksForUpdates)
+            Text("Scrap checks daily. Updates can be downloaded and installed here without visiting GitHub. With automatic installation enabled, updates install when you quit; Scrap may also offer to restart to finish an update.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let date = updateChecker.lastCheckDate {
+                Text("Last checked: \(date.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if !updateChecker.status.isEmpty {
-                HStack {
-                    Text(updateChecker.status).font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    if let release = updateChecker.availableRelease {
-                        Link("View Release", destination: release.htmlURL)
-                    }
-                }
+                Text(updateChecker.status).font(.caption).foregroundStyle(.red)
             }
             Spacer()
         }

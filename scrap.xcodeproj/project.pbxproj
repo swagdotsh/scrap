@@ -5,6 +5,21 @@
 	objectVersion = 77;
 	objects = {
 
+		A01400000000000000000001 = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = { kind = exactVersion; version = 2.10.0; };
+		};
+		A01400000000000000000002 = {
+			isa = XCSwiftPackageProductDependency;
+			package = A01400000000000000000001;
+			productName = Sparkle;
+		};
+		A01400000000000000000003 = {
+			isa = PBXBuildFile;
+			productRef = A01400000000000000000002;
+		};
+
 		F66A64CE303493E6001A1CF1 = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F66A64B8303493E5001A1CF1;
@@ -45,6 +60,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A01400000000000000000003,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +119,7 @@
 			);
 			name = scrap;
 			packageProductDependencies = (
+				A01400000000000000000002,
 			);
 			productName = scrap;
 			productReference = F66A64C0303493E5001A1CF1;
@@ -185,6 +202,7 @@
 			mainGroup = F66A64B7303493E5001A1CF1;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			packageReferences = (A01400000000000000000001,);
 			productRefGroup = F66A64C1303493E5001A1CF1;
 			projectDirPath = "";
 			projectRoot = "";
@@ -391,9 +409,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = scrap/scrap.entitlements;
+				INFOPLIST_FILE = Config/Info.plist;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.4;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APPLE_EVENTS = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -417,7 +436,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -440,9 +459,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = scrap/scrap.entitlements;
+				INFOPLIST_FILE = Config/Info.plist;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.4;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APPLE_EVENTS = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -466,7 +486,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

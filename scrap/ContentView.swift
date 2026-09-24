@@ -19,6 +19,8 @@ struct ContentView: View {
     @ObservedObject var client: LastFMClient
     @ObservedObject var updateChecker: UpdateChecker
     var isMenuBar = false
+    @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var selection: Page = .nowPlaying
     @State private var details: ListeningDetails?
     @State private var recent: [RecentScrobble] = []
@@ -95,6 +97,7 @@ struct ContentView: View {
             }
         }
         .frame(width: 680, height: 350)
+        .background(isMenuBar ? Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1 : min(1, max(0.5, menuBarBackgroundOpacity))) : .clear)
         .task(id: detailTaskID) {
             details = nil
             guard let track = listener.track else { return }

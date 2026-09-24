@@ -1,0 +1,15 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>scrap</title>
+        <item>
+            <title>1.4</title>
+            <pubDate>Thu, 24 Sep 2026 10:59:27 +0200</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.4</link>
+            <sparkle:version>1.4</sparkle:version>
+            <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.4/scrap-v1.4-universal.zip" length="3492290" type="application/octet-stream" sparkle:edSignature="mV/k3RJolyskNS8mf2QRVRnt0ngW+5L14PA6va4hCI1v4NpF8Uvy6p5NHDfJ9d/ki2ZiDdodHF1y9Nat6KoyCQ=="/>
+        </item>
+    </channel>
+</rss>
