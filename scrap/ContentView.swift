@@ -20,6 +20,9 @@ struct ContentView: View {
     @ObservedObject var updateChecker: UpdateChecker
     var isMenuBar = false
     @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
+    @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
+    @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var selection: Page = .nowPlaying
     @State private var details: ListeningDetails?
@@ -33,7 +36,7 @@ struct ContentView: View {
     @State private var refreshID = 0
 
     private var detailTaskID: String {
-        [listener.track?.title ?? "", listener.track?.artist ?? "", listener.track?.album ?? "", client.username ?? "", String(client.canScrobble)].joined(separator: "\u{001F}")
+        [listener.track?.title ?? "", listener.track?.artist ?? "", listener.track?.album ?? "", client.username ?? "", String(client.canScrobble), String(usePrimaryArtist), preservedArtistNames].joined(separator: "\u{001F}")
     }
 
     var body: some View {
@@ -101,7 +104,7 @@ struct ContentView: View {
         .task(id: detailTaskID) {
             details = nil
             guard let track = listener.track else { return }
-            let result = await client.listeningDetails(for: track) { partial in
+            let result = await client.listeningDetails(for: artistDetailsTrack(track)) { partial in
                 guard !Task.isCancelled else { return }
                 details = partial
             }
@@ -166,11 +169,11 @@ struct ContentView: View {
                         Text(track.title).font(.system(size: 28, weight: .bold))
                             .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
                     }.buttonStyle(.plain)
-                    (linkedName(track.artist, url: track.artistURL) + Text(track.album.isEmpty ? "" : " · ") + linkedName(track.album, url: track.albumURL).italic())
+                    nowPlayingMetadata(track)
                         .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     ProgressView(value: progress(track))
                         .accessibilityLabel("Scrobble progress")
-                    listeningSummary(track)
+                    listeningSummary(artistDetailsTrack(track))
                         .font(.callout).italic().foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let details {
                         linkChips(details.trackTags)
@@ -184,9 +187,34 @@ struct ContentView: View {
         }
         }
         if let track = listener.track, let details {
-            aboutArtist(track.artist, details: details.artist)
+            aboutArtist(artistDetailsTrack(track).artist, details: details.artist)
         }
         }.padding(.top, 16)
+    }
+
+    private func artistDetailsTrack(_ track: PlayingTrack) -> PlayingTrack {
+        let metadata = LastFMClient.metadata(
+            for: track,
+            removeAlbumTypeSuffix: false,
+            usePrimaryArtist: usePrimaryArtist,
+            preservedArtistNames: preservedArtistNames
+        )
+        return PlayingTrack(title: track.title, artist: metadata["artist"] ?? track.artist,
+                            album: track.album, duration: track.duration)
+    }
+
+    private func nowPlayingMetadata(_ track: PlayingTrack) -> Text {
+        let metadata = LastFMClient.metadata(
+            for: track,
+            removeAlbumTypeSuffix: removeAlbumTypeSuffix,
+            usePrimaryArtist: usePrimaryArtist,
+            preservedArtistNames: preservedArtistNames
+        )
+        let artistNote = metadata["artist"].flatMap { $0 == track.artist ? nil : " (scrobbling as \($0))" } ?? ""
+        let albumNote = metadata["album"].flatMap { $0 == track.album ? nil : " (scrobbling as \($0))" } ?? ""
+        return linkedName(track.artist, url: track.artistURL) + Text(artistNote)
+            + Text(track.album.isEmpty ? "" : " - ")
+            + linkedName(track.album, url: track.albumURL).italic() + Text(albumNote)
     }
 
     private func linkedName(_ name: String, url: URL) -> Text {

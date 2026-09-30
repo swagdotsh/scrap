@@ -177,4 +177,19 @@ struct scrapTests {
         )
         #expect(threeArtistsMetadata["artist"] == "Drake")
     }
+    @Test func primaryArtistPreservesBandNames() {
+        for name in ["Earth, Wind & Fire", "earth, wind & fire", "Earth, Wind & Fire & Guest", "Earth, Wind & Fire, Guest"] {
+            let track = PlayingTrack(title: "September", artist: name, album: "", duration: 180)
+            let metadata = LastFMClient.metadata(for: track, removeAlbumTypeSuffix: false, usePrimaryArtist: true)
+            #expect(metadata["artist"]?.lowercased() == "earth, wind & fire")
+        }
+        let track = PlayingTrack(title: "Song", artist: "Simon & Garfunkel & Guest", album: "", duration: 180)
+        let metadata = LastFMClient.metadata(for: track, removeAlbumTypeSuffix: false, usePrimaryArtist: true,
+                                             preservedArtistNames: "Simon\nSimon & Garfunkel\n")
+        #expect(metadata["artist"] == "Simon & Garfunkel")
+        let other = PlayingTrack(title: "Song", artist: "Earth, Wind & Fireplace & Guest", album: "", duration: 180)
+        #expect(LastFMClient.metadata(for: other, removeAlbumTypeSuffix: false, usePrimaryArtist: true)["artist"] == "Earth")
+        #expect(LastFMClient.metadata(for: track, removeAlbumTypeSuffix: false, usePrimaryArtist: false)["artist"] == track.artist)
+    }
+
 }

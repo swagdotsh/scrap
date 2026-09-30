@@ -220,14 +220,18 @@ final class LastFMClient: ObservableObject {
         Self.metadata(
             for: track,
             removeAlbumTypeSuffix: defaults.bool(forKey: DefaultsKey.removeAlbumTypeSuffix),
-            usePrimaryArtist: defaults.bool(forKey: DefaultsKey.usePrimaryArtist)
+            usePrimaryArtist: defaults.bool(forKey: DefaultsKey.usePrimaryArtist),
+            preservedArtistNames: defaults.string(forKey: "preservedArtistNames") ?? Self.defaultPreservedArtistNames
         )
     }
+
+    nonisolated static let defaultPreservedArtistNames = "Earth, Wind & Fire"
 
     static func metadata(
         for track: PlayingTrack,
         removeAlbumTypeSuffix: Bool,
-        usePrimaryArtist: Bool
+        usePrimaryArtist: Bool,
+        preservedArtistNames: String = defaultPreservedArtistNames
     ) -> [String: String] {
         var album = track.album
         if removeAlbumTypeSuffix {
@@ -239,9 +243,24 @@ final class LastFMClient: ObservableObject {
 
         var artist = track.artist
         if usePrimaryArtist {
-            let separators = [artist.range(of: ", "), artist.range(of: " & ")].compactMap { $0 }
-            if let separator = separators.min(by: { $0.lowerBound < $1.lowerBound }) {
-                artist = String(artist[..<separator.lowerBound])
+            // Match the longest protected name before interpreting collaboration separators.
+            let protectedNames = preservedArtistNames.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .sorted { $0.count > $1.count }
+            let protectedRange = protectedNames.compactMap { name -> Range<String.Index>? in
+                guard let range = artist.range(of: name, options: [.anchored, .caseInsensitive]) else { return nil }
+                let remainder = artist[range.upperBound...]
+                guard remainder.isEmpty || remainder.hasPrefix(" & ") || remainder.hasPrefix(", ") else { return nil }
+                return range
+            }.first
+            if let protectedRange {
+                artist = String(artist[protectedRange])
+            } else {
+                let separators = [artist.range(of: ", "), artist.range(of: " & ")].compactMap { $0 }
+                if let separator = separators.min(by: { $0.lowerBound < $1.lowerBound }) {
+                    artist = String(artist[..<separator.lowerBound])
+                }
             }
         }
 

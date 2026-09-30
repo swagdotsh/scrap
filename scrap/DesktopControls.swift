@@ -10,6 +10,7 @@ final class DesktopControls: NSObject {
     private let popover = NSPopover()
     private var menuTrack: PlayingTrack?
     private var menuLoved: Bool?
+    private var sharingPicker: NSSharingServicePicker?
     private var mainWindow: NSWindow?
     private let tagController = TagWindowController()
 
@@ -43,7 +44,7 @@ final class DesktopControls: NSObject {
                 addInfo("Nothing playing", to: menu)
             }
             menu.addItem(.separator())
-            let loveItem = NSMenuItem(title: "Checking loved status…", action: #selector(loveTrack), keyEquivalent: "")
+            let loveItem = NSMenuItem(title: "Love track", action: #selector(loveTrack), keyEquivalent: "")
             loveItem.target = self
             loveItem.isEnabled = false
             menu.addItem(loveItem)
@@ -53,13 +54,13 @@ final class DesktopControls: NSObject {
                         let loved = try await model.client.isLoved(track)
                         guard menuTrack == track else { return }
                         menuLoved = loved
-                        loveItem.title = loved ? "Unlove track" : "Love track"
+                        loveItem.state = loved ? .on : .off
                         loveItem.isEnabled = true
-                    } catch { loveItem.title = "Loved status unavailable" }
+                    } catch { loveItem.toolTip = "Loved status unavailable" }
                 }
-            } else { loveItem.title = "Love track" }
+            }
             add("Tag…", action: #selector(tagTrack), to: menu, enabled: menuTrack != nil && model.client.canScrobble)
-            add("Share", action: #selector(shareTrack), to: menu, enabled: menuTrack != nil)
+            add("Share track", action: #selector(shareTrack), to: menu, enabled: menuTrack != nil)
             add("View on last.fm", action: #selector(viewTrack), to: menu, enabled: menuTrack != nil)
             menu.addItem(.separator())
             add("Quit scrap", action: #selector(quit), to: menu)
@@ -136,8 +137,13 @@ final class DesktopControls: NSObject {
     }
     @objc private func shareTrack() {
         guard let track = menuTrack else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(track.trackURL.absoluteString, forType: .string)
+        // Present after the context menu has finished dismissing.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let button = self.item.button else { return }
+            let picker = NSSharingServicePicker(items: [track.trackURL])
+            self.sharingPicker = picker
+            picker.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
     }
     @objc private func quit() { NSApp.terminate(nil) }
 }
@@ -212,6 +218,7 @@ private struct PreferencesView: View {
     @AppStorage("showInDock") private var showInDock = true
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @AppStorage("scrobbleAppleMusic") private var scrobbleAppleMusic = true
     @AppStorage("scrobbleSpotify") private var scrobbleSpotify = false
     @AppStorage("scrobbleUntitled") private var scrobbleUntitled = false
@@ -256,8 +263,30 @@ private struct PreferencesView: View {
                 }
                 .help("Higher opacity improves text readability. 100% gives a solid background.")
                 Divider()
-                Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
-                Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
+                    Text("Example: bfo2\nSummrs - What We Have - EP (scrobbling as What We Have)")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
+                    Text("Example: Hours In Silence\nDrake & 21 Savage (scrobbling as Drake) - Her Loss")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if usePrimaryArtist {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Keep these artist names intact").font(.subheadline)
+                        TextEditor(text: $preservedArtistNames)
+                            .font(.body)
+                            .frame(height: 70)
+                            .border(Color.secondary.opacity(0.3))
+                            .accessibilityLabel("Artist names to keep intact")
+                        Text("One artist per line. These names stay intact even when they contain commas or &.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
