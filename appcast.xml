@@ -3,6 +3,29 @@
     <channel>
         <title>scrap</title>
         <item>
+            <title>1.5</title>
+            <pubDate>Wed, 30 Sep 2026 10:51:43 +0200</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.5</link>
+            <sparkle:version>1.5</sparkle:version>
+            <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[Scrap 1.5
+
+Now Playing
+- See exactly how artist and album names will be scrobbled when the first-artist or album-suffix cleanup options change them.
+- Listening counts, artist biographies, top songs, and top albums now follow the first-artist setting and refresh when it changes.
+
+Settings
+- Added examples for the first-artist and album-suffix cleanup options.
+- Added an editable “Keep these artist names intact” list, with Earth, Wind & Fire included by default, to protect band names containing commas or ampersands.
+
+Menu bar
+- “Love track” now uses a native checkmark to show whether a track is loved. Select it to toggle love status.
+- “Share track” now opens the native macOS sharing picker with the track’s Last.fm link.
+]]></description>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.5/scrap-v1.5-universal.zip" length="3525433" type="application/octet-stream" sparkle:edSignature="wGSlR8LLHJ5gBWn6w1J5jGMJTQBLAvh7gP8KsI1pjgFWAA2O/GFioPjQC204/iVRAndlYmszUf1GUDv2OrXSBg=="/>
+        </item>
+        <item>
             <title>1.4</title>
             <pubDate>Thu, 24 Sep 2026 10:59:27 +0200</pubDate>
             <link>https://github.com/swagdotsh/scrap/releases/tag/v1.4</link>
