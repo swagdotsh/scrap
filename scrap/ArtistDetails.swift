@@ -34,7 +34,6 @@ struct ArtistDetails {
     var topAlbums: [MusicLink] = []
 
     static func plainBiography(_ html: String) -> String {
-        // Remove Last.fm's trailing attribution link; the view provides its own source link.
         let stripped = html.replacingOccurrences(of: "<a\\b[^>]*>.*?</a>", with: "", options: [.regularExpression, .caseInsensitive])
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
         var text = stripped

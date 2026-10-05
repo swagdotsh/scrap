@@ -34,7 +34,7 @@ public sealed partial class MainWindow
         bool Active() => !closed && revision == version && current?.Title == track.Title && current?.Artist == track.Artist && current?.Album == track.Album;
         ArtistHeading.Text = "About " + track.Artist;
         ArtistBiography.Text = "Loading artist biography…";
-        TrackDetails.Text = " - Loading your listening history…";
+        TrackDetails.Text = "Loading your listening history…";
         TrackTags.Children.Clear(); ArtistTags.Children.Clear();
         ArtistTopTracks.Children.Clear(); ArtistTopAlbums.Children.Clear(); SimilarArtists.Children.Clear();
         long? artistCount = null, trackCount = null;
@@ -42,7 +42,7 @@ public sealed partial class MainWindow
         void UpdateSummary()
         {
             if (Active() && artistFinished && trackFinished)
-                TrackDetails.Text = " - " + MusicPresentation.ListeningSummary(track, artistCount, trackCount);
+                TrackDetails.Text = MusicPresentation.ListeningSummary(track, artistCount, trackCount);
         }
         DetailsStatus.Text = "";
         ArtistLinks.Children.Clear();
@@ -93,7 +93,7 @@ public sealed partial class MainWindow
         if (!client.Configured)
         {
             ArtistBiography.Text = "Add Last.fm app credentials to load the biography.";
-            TrackDetails.Text = " - Listening history unavailable.";
+            TrackDetails.Text = "Listening history unavailable.";
             await Task.WhenAll(coverTask, portraitTask);
             return;
         }

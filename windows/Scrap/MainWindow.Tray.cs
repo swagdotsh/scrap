@@ -12,21 +12,24 @@ public sealed partial class MainWindow
         {
             var track = current;
             var user = client.Username;
+            var artist = track == null ? null : ScrobbleLabel(track.OriginalArtist, track.Artist);
+            var album = track == null ? null : ScrobbleLabel(track.OriginalAlbum, track.Album);
+            var artistAlbum = track == null ? null : artist + (string.IsNullOrWhiteSpace(album) ? "" : " - " + album);
             bool StillCurrent() => !closed && client.Connected && client.Username == user &&
                 current?.Title == track?.Title && current?.Artist == track?.Artist;
             if (track == null || !client.Connected)
             {
-                tray?.ShowMenu(track == null ? "Love track (nothing playing)" : "Love track (connect Last.fm)", null);
+                tray?.ShowMenu(track == null ? "Love track (nothing playing)" : "Love track (connect Last.fm)", null, false, track?.Title, artistAlbum);
                 return;
             }
             bool loved;
             try { loved = await client.IsLovedAsync(track).WaitAsync(TimeSpan.FromSeconds(5)); }
             catch (Exception)
             {
-                if (!closed) tray?.ShowMenu("Love status unavailable (retry)", null);
+                if (!closed) tray?.ShowMenu("Love status unavailable (retry)", null, false, track?.Title, artistAlbum);
                 return;
             }
-            if (!StillCurrent()) { if (!closed) tray?.ShowMenu("Track changed (reopen menu)", null); return; }
+            if (!StillCurrent()) { if (!closed) tray?.ShowMenu("Track changed (reopen menu)", null, false, track?.Title, artistAlbum); return; }
             tray?.ShowMenu(loved ? "Unlove track" : "Love track", () =>
             {
                 if (!StillCurrent()) return;
@@ -38,7 +41,7 @@ public sealed partial class MainWindow
                         await client.LoveAsync(track, desired);
                     });
                 });
-            });
+            }, true, track.Title, artistAlbum);
         }
         finally { preparingTrayMenu = false; }
     }

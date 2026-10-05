@@ -7,17 +7,17 @@ public sealed class TrayIcon : IDisposable
     private const uint CallbackMessage = 0x8001;
     private readonly nint window;
     private readonly SubclassProc callback;
-    private readonly Action open, quit, settings, requestMenu;
+    private readonly Action open, quit, settings, requestMenu, tagTrack, tagArtist;
     private readonly nint icon;
     private readonly uint taskbarCreated = RegisterWindowMessage("TaskbarCreated");
     private NotifyIconData data;
     private bool disposed;
     public bool Available { get; private set; }
 
-    public TrayIcon(nint window, Action open, Action quit, Action settings, Action requestMenu)
+    public TrayIcon(nint window, Action open, Action quit, Action settings, Action requestMenu, Action tagTrack, Action tagArtist)
     {
         this.window = window; this.open = open; this.quit = quit;
-        this.settings = settings; this.requestMenu = requestMenu;
+        this.settings = settings; this.requestMenu = requestMenu; this.tagTrack = tagTrack; this.tagArtist = tagArtist;
         callback = WindowProc;
         icon = LoadImage(0, Path.Combine(AppContext.BaseDirectory, "Assets", "Scrap.ico"), 1,
             GetSystemMetrics(49), GetSystemMetrics(50), 0x10);
@@ -66,7 +66,7 @@ public sealed class TrayIcon : IDisposable
         Shell_NotifyIcon(1, ref notification);
     }
 
-    public void ShowMenu(string loveLabel, Action? toggleLove)
+    public void ShowMenu(string loveLabel, Action? toggleLove, bool canTag, string? currentTitle, string? currentArtistAlbum)
     {
         if (disposed) return;
         var menu = CreatePopupMenu();
@@ -74,9 +74,15 @@ public sealed class TrayIcon : IDisposable
         uint selected;
         try
         {
+            AppendMenu(menu, 1, 7, "Now playing");
+            AppendMenu(menu, 1, 8, string.IsNullOrWhiteSpace(currentTitle) ? "Nothing playing" : currentTitle);
+            AppendMenu(menu, 1, 9, string.IsNullOrWhiteSpace(currentArtistAlbum) ? "—" : currentArtistAlbum);
+            AppendMenu(menu, 0x800, 0, "");
             AppendMenu(menu, 0, 1, "Open Scrap");
             AppendMenu(menu, 0, 3, "Settings");
             AppendMenu(menu, toggleLove == null ? 1u : 0u, 4, loveLabel);
+            AppendMenu(menu, canTag ? 0u : 1u, 5, "Tag track…");
+            AppendMenu(menu, canTag ? 0u : 1u, 6, "Tag artist…");
             AppendMenu(menu, 0x800, 0, "");
             AppendMenu(menu, 0, 2, "Quit Scrap");
             GetCursorPos(out var point);
@@ -89,6 +95,8 @@ public sealed class TrayIcon : IDisposable
         else if (selected == 2) quit();
         else if (selected == 3) settings();
         else if (selected == 4) toggleLove?.Invoke();
+        else if (selected == 5) tagTrack();
+        else if (selected == 6) tagArtist();
     }
 
     public void Dispose()

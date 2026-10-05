@@ -9,6 +9,7 @@ public sealed class MediaListener
     private double previousPosition;
     private PlayingTrack? previousTrack;
     public bool AppleMusicOnly { get; set; } = true;
+    public MetadataCleanup Cleanup { get; set; } = MetadataCleanup.Defaults;
     public string Source { get; private set; } = "Apple Music";
     public Windows.Storage.Streams.IRandomAccessStreamReference? Thumbnail { get; private set; }
 
@@ -28,7 +29,7 @@ public sealed class MediaListener
         if (string.IsNullOrWhiteSpace(metadata.Title) || string.IsNullOrWhiteSpace(metadata.Artist))
         { previousTrack = null; return (null, false, false); }
         Thumbnail = metadata.Thumbnail;
-        var track = MediaMetadata.Normalize(Source, metadata.Title, metadata.Artist, metadata.AlbumTitle, duration > 0 ? duration : null);
+        var track = Cleanup.Apply(MediaMetadata.Normalize(Source, metadata.Title, metadata.Artist, metadata.AlbumTitle, duration > 0 ? duration : null), Source);
         var same = previousTrack?.Title == track.Title && previousTrack?.Artist == track.Artist && previousTrack?.Album == track.Album;
         var restarted = previousSource != null && previousSource != Source || same && duration > 0 && previousPosition >= duration - 3 && position < 3;
         previousTrack = track; previousPosition = position; previousSource = Source;

@@ -1,6 +1,6 @@
 namespace Scrap;
 
-public sealed record PlayingTrack(string Title, string Artist, string Album, double? Duration);
+public sealed record PlayingTrack(string Title, string Artist, string Album, double? Duration, string? OriginalArtist = null, string? OriginalAlbum = null);
 public sealed record Submission(PlayingTrack Track, long Timestamp, string Username);
 public sealed class ScrobbleEngine
 {

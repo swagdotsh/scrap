@@ -8,7 +8,7 @@ public static class WindowsStartup
     private const string Name = "Scrap";
 
     public static StartupSetting Create() => new(Read, Write,
-        Environment.ProcessPath ?? throw new InvalidOperationException("Could not locate Scrap's executable."));
+        Environment.ProcessPath ?? throw new InvalidOperationException("Could not locate Scrap's executable."), "--background");
 
     private static string? Read()
     {

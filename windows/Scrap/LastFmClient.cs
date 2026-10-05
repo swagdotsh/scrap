@@ -115,6 +115,34 @@ public sealed class LastFmClient : IDisposable
         Status = loved ? $"Loved {track.Title}." : $"Unloved {track.Title}.";
     }
 
+    public async Task<JsonNode> TrackTagsAsync(PlayingTrack track, bool community = false)
+    {
+        var method = community ? "track.getTopTags" : "track.getTags";
+        var args = new Dictionary<string, string> { ["method"] = method, ["artist"] = track.Artist, ["track"] = track.Title };
+        if (!community && Username != null) args["user"] = Username;
+        return await RequestAsync(args);
+    }
+
+    public async Task<JsonNode> ArtistTagsAsync(string artist, bool community = false)
+    {
+        var method = community ? "artist.getTopTags" : "artist.getTags";
+        var args = new Dictionary<string, string> { ["method"] = method, ["artist"] = artist };
+        if (!community && Username != null) args["user"] = Username;
+        return await RequestAsync(args);
+    }
+
+    public Task AddTrackTagsAsync(PlayingTrack track, IEnumerable<string> tags) => AddTagsAsync("track.addTags", new() { ["artist"] = track.Artist, ["track"] = track.Title }, tags);
+    public Task AddArtistTagsAsync(string artist, IEnumerable<string> tags) => AddTagsAsync("artist.addTags", new() { ["artist"] = artist }, tags);
+
+    private async Task AddTagsAsync(string method, Dictionary<string, string> args, IEnumerable<string> tags)
+    {
+        if (!Connected) throw new InvalidOperationException("Connect Last.fm first.");
+        var values = tags.Select(t => t.Trim()).Where(t => t.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToArray();
+        if (values.Length == 0) throw new InvalidOperationException("Enter at least one tag.");
+        args["method"] = method; args["tags"] = string.Join(',', values); args["sk"] = sessionKey;
+        await RequestAsync(args, true);
+    }
+
     private Dictionary<string, string> Metadata(PlayingTrack track, string method)
     {
         var args = new Dictionary<string, string> { ["method"] = method, ["track"] = track.Title, ["artist"] = track.Artist, ["album"] = track.Album, ["sk"] = sessionKey };

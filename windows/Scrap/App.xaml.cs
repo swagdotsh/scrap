@@ -19,7 +19,7 @@ public partial class App : Application
         try
         {
             window = new MainWindow();
-            window.Activate();
+            if (!Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--background", StringComparison.OrdinalIgnoreCase))) window.Activate();
         }
         catch (Exception exception) { LogFailure(exception); throw; }
     }
