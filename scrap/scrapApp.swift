@@ -14,6 +14,9 @@ final class AppModel: ObservableObject {
     init() {
         engine.onNowPlaying = { [weak self] in self?.client.updateNowPlaying($0) }
         engine.onScrobble = { [weak self] in self?.client.scrobble($0, startedAt: $1) }
+        listener.onAppleMusicFavorite = { [weak self] track in
+            self?.client.loveAppleMusicFavorite(track)
+        }
         listener.onUpdate = { [weak self] track, playing, restarted in
             guard let self else { return }
             self.engine.update(track: self.client.canScrobble ? track : nil, isPlaying: playing && !self.client.scrobblingPaused, restarted: restarted)

@@ -90,6 +90,7 @@ final class LastFMClient: ObservableObject {
             try KeychainHelper.delete(key: "lastfm_session_key")
             try KeychainHelper.delete(key: "lastfm_username")
             sessionKey = nil
+            lovedTracks = [:]
             lastFMReachable = nil
             username = nil
             pendingToken = nil
@@ -131,6 +132,7 @@ final class LastFMClient: ObservableObject {
                   let user = session["name"] as? String else { throw failure("Last.fm returned no session.") }
             try KeychainHelper.save(key: "lastfm_session_key", value: key)
             try KeychainHelper.save(key: "lastfm_username", value: user)
+            lovedTracks = [:]
             sessionKey = key
             username = user
             self.pendingToken = nil
@@ -139,21 +141,67 @@ final class LastFMClient: ObservableObject {
         } catch { status = error.localizedDescription }
     }
 
+    private var loveRevision = 0
+    @Published private(set) var lovedTracks: [[String]: Bool] = [:]
+    @Published private(set) var loveRequests = Set<[String]>()
+
+    func lovedState(for track: PlayingTrack) -> Bool? {
+        lovedTracks[[track.artist, track.title]]
+    }
+
+    func refreshLovedState(for track: PlayingTrack) async {
+        guard canScrobble else { return }
+        do { _ = try await isLoved(track) }
+        catch { status = "Could not load loved status: \(error.localizedDescription)" }
+    }
+
     func isLoved(_ track: PlayingTrack) async throws -> Bool {
         guard let username else { throw NSError(domain: "LastFM", code: 0) }
+        let revision = loveRevision
         let json = try await request(["method": "track.getInfo", "artist": track.artist, "track": track.title, "username": username])
         guard let info = json["track"] as? [String: Any], let value = info["userloved"] else {
             throw NSError(domain: "LastFM", code: 0)
         }
-        return (value as? String) == "1" || (value as? Int) == 1
+        let loved = (value as? String) == "1" || (value as? Int) == 1
+        guard self.username == username else { throw NSError(domain: "LastFM", code: 0) }
+        if revision == loveRevision, !loveRequests.contains([track.artist, track.title]) {
+            lovedTracks[[track.artist, track.title]] = loved
+        }
+        return loved
     }
 
-    func love(_ track: PlayingTrack, loved: Bool = true) async {
-        guard isConfigured, let sessionKey else { return }
+    private var automaticLoves = Set<[String]>()
+    private var automaticLoveAttempts: [[String]: Date] = [:]
+
+    func loveAppleMusicFavorite(_ track: PlayingTrack) {
+        guard defaults.bool(forKey: "loveAppleMusicFavorites"), canScrobble,
+              let sessionKey else { return }
+        let key = [sessionKey, track.artist, track.title]
+        guard !automaticLoves.contains(key),
+              automaticLoveAttempts[key].map({ Date().timeIntervalSince($0) >= 60 }) ?? true else { return }
+        automaticLoveAttempts[key] = Date()
+        automaticLoves.insert(key)
+        Task {
+            let succeeded = await love(track)
+            if !succeeded { automaticLoves.remove(key) }
+        }
+    }
+
+    @discardableResult
+    func love(_ track: PlayingTrack, loved: Bool = true) async -> Bool {
+        guard isConfigured, let sessionKey else { return false }
+        let trackKey = [track.artist, track.title]
+        guard !loveRequests.contains(trackKey) else { return false }
+        loveRevision += 1
+        loveRequests.insert(trackKey)
+        defer { loveRequests.remove(trackKey) }
         do {
             _ = try await request(["method": loved ? "track.love" : "track.unlove", "track": track.title, "artist": track.artist, "sk": sessionKey], post: true)
+            guard self.sessionKey == sessionKey else { return false }
+            lovedTracks[trackKey] = loved
             status = loved ? "Loved \(track.title)." : "Unloved \(track.title)."
-        } catch { status = error.localizedDescription }
+            return true
+        } catch { status = error.localizedDescription; return false }
     }
 
     func updateNowPlaying(_ track: PlayingTrack) {

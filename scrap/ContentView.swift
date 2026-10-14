@@ -101,6 +101,10 @@ struct ContentView: View {
         }
         .frame(width: 680, height: 350)
         .background(isMenuBar ? Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1 : min(1, max(0.5, menuBarBackgroundOpacity))) : .clear)
+        .task(id: "love-\(detailTaskID)") {
+            guard let track = listener.track else { return }
+            await client.refreshLovedState(for: track)
+        }
         .task(id: detailTaskID) {
             details = nil
             guard let track = listener.track else { return }
@@ -165,10 +169,30 @@ struct ContentView: View {
             .accessibilityLabel("Album artwork")
             VStack(alignment: .leading, spacing: 12) {
                 if let track = listener.track {
-                    Link(destination: track.trackURL) {
-                        Text(track.title).font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
-                    }.buttonStyle(.plain)
+                    HStack(alignment: .center, spacing: 12) {
+                        Link(destination: track.trackURL) {
+                            Text(track.title).font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(.primary).fixedSize(horizontal: false, vertical: true)
+                        }.buttonStyle(.plain)
+                        let loved = client.lovedState(for: track) ?? false
+                        Button {
+                            Task {
+                                if client.lovedState(for: track) == nil {
+                                    await client.refreshLovedState(for: track)
+                                }
+                                guard let current = client.lovedState(for: track) else { return }
+                                await client.love(track, loved: !current)
+                            }
+                        } label: {
+                            Image(systemName: loved ? "heart.fill" : "heart")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(loved ? Color.pink : Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!client.canScrobble || client.loveRequests.contains([track.artist, track.title]))
+                        .help(loved ? "Unlove on Last.fm" : "Love on Last.fm")
+                        .accessibilityLabel(loved ? "Unlove on Last.fm" : "Love on Last.fm")
+                    }
                     nowPlayingMetadata(track)
                         .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     ProgressView(value: progress(track))

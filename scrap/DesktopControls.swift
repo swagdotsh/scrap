@@ -4,10 +4,12 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class DesktopControls: NSObject {
+final class DesktopControls: NSObject, NSPopoverDelegate {
     private let model: AppModel
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let popover = NSPopover()
+    private var outsideClickMonitor: Any?
+    private var localClickMonitor: Any?
     private var menuTrack: PlayingTrack?
     private var menuLoved: Bool?
     private var sharingPicker: NSSharingServicePicker?
@@ -21,6 +23,7 @@ final class DesktopControls: NSObject {
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        popover.delegate = self
         popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: ContentView(listener: model.listener, engine: model.engine, client: model.client, updateChecker: model.updateChecker, isMenuBar: true))
     }
@@ -72,6 +75,28 @@ final class DesktopControls: NSObject {
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            self?.popover.performClose(nil)
+        }
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+            guard let self else { return event }
+            // Let the status button handle its own toggle on mouse-up.
+            if event.window !== self.popover.contentViewController?.view.window,
+               event.window !== self.item.button?.window {
+                self.popover.performClose(nil)
+            }
+            return event
+        }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        if let localClickMonitor { NSEvent.removeMonitor(localClickMonitor) }
+        outsideClickMonitor = nil
+        localClickMonitor = nil
     }
 
     private func add(_ title: String, action: Selector, to menu: NSMenu, enabled: Bool = true) {
@@ -220,6 +245,7 @@ private struct PreferencesView: View {
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @AppStorage("scrobbleAppleMusic") private var scrobbleAppleMusic = true
+    @AppStorage("loveAppleMusicFavorites") private var loveAppleMusicFavorites = false
     @AppStorage("scrobbleSpotify") private var scrobbleSpotify = false
     @AppStorage("scrobbleUntitled") private var scrobbleUntitled = false
     @State private var accountProfile: ListenerProfile?
@@ -263,6 +289,8 @@ private struct PreferencesView: View {
                 }
                 .help("Higher opacity improves text readability. 100% gives a solid background.")
                 Divider()
+                Toggle("Love favorited songs (Apple Music)", isOn: $loveAppleMusicFavorites)
+                    .help("Love the current Apple Music song on Last.fm when it is favorited in Music.")
                 VStack(alignment: .leading, spacing: 5) {
                     Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
                     Text("Example: bfo2\nSummrs - What We Have - EP (scrobbling as What We Have)")
