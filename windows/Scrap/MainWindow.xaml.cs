@@ -21,6 +21,8 @@ public sealed partial class MainWindow : Window
     private readonly MediaListener listener = new();
     private readonly ScrobbleEngine engine = new();
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer updateTimer = new() { Interval = TimeSpan.FromHours(1) };
+    private bool checkingForUpdate;
     private readonly DispatcherTimer friendsTimer = new() { Interval = TimeSpan.FromHours(1) };
     private string page = "playing";
     private bool ready, ticking, actionBusy, closed, quitting;
@@ -109,7 +111,9 @@ public sealed partial class MainWindow : Window
         timer.Start();
         friendsTimer.Tick += async (_, _) => { if (page == "friends" && !closed) await RunAsync(LoadPageAsync); };
         friendsTimer.Start();
-        Closed += (_, _) => { closed = true; timer.Stop(); friendsTimer.Stop(); engine.Suspend(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose(); };
+        updateTimer.Tick += async (_, _) => { if (DailyUpdateCheck.IsChecked == true) await CheckDailyUpdateAsync(); };
+        updateTimer.Start();
+        Closed += (_, _) => { closed = true; timer.Stop(); friendsTimer.Stop(); updateTimer.Stop(); engine.Suspend(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose(); };
         UpdateStatus();
         if (DailyUpdateCheck.IsChecked == true) _ = CheckDailyUpdateAsync();
     }
@@ -466,10 +470,18 @@ public sealed partial class MainWindow : Window
 
     private async Task CheckForUpdateAsync(bool showCurrent)
     {
+        if (checkingForUpdate || closed) return;
+        checkingForUpdate = true;
+        try { await DownloadUpdateAsync(showCurrent); }
+        finally { checkingForUpdate = false; }
+    }
+
+    private async Task DownloadUpdateAsync(bool showCurrent)
+    {
         UpdateCheckStatus.Text = "Checking for updates…";
         using var http = new HttpClient();
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Scrap-Windows/" + typeof(MainWindow).Assembly.GetName().Version?.ToString(3));
-        http.Timeout = TimeSpan.FromSeconds(25);
+        http.Timeout = TimeSpan.FromMinutes(5);
         var releases = await http.GetFromJsonAsync<JsonArray>("https://api.github.com/repos/swagdotsh/scrap/releases?per_page=100")
             ?? throw new InvalidOperationException("GitHub returned no release information.");
         var release = UpdateRelease.Latest(releases);
