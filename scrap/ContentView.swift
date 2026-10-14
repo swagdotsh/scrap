@@ -21,6 +21,7 @@ struct ContentView: View {
     var isMenuBar = false
     @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
+    @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -231,6 +232,7 @@ struct ContentView: View {
         let metadata = LastFMClient.metadata(
             for: track,
             removeAlbumTypeSuffix: removeAlbumTypeSuffix,
+            removeAppleMusicEdition: removeAppleMusicEdition,
             usePrimaryArtist: usePrimaryArtist,
             preservedArtistNames: preservedArtistNames
         )

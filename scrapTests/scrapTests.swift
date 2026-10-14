@@ -177,6 +177,20 @@ struct scrapTests {
         )
         #expect(threeArtistsMetadata["artist"] == "Drake")
     }
+    @Test func appleMusicEditionCleanupRequiresBothSettings() {
+        let track = PlayingTrack(title: "Out", artist: "SoFaygo", album: "Pink Heartz (Apple Music Edition)", duration: 180)
+        for parentEnabled in [false, true] {
+            for editionEnabled in [false, true] {
+                let metadata = LastFMClient.metadata(for: track, removeAlbumTypeSuffix: parentEnabled,
+                                                     removeAppleMusicEdition: editionEnabled, usePrimaryArtist: false)
+                #expect(metadata["album"] == (parentEnabled && editionEnabled ? "Pink Heartz" : track.album))
+            }
+        }
+        let middle = PlayingTrack(title: "Song", artist: "Artist", album: "Album (Apple Music Edition) Deluxe", duration: 180)
+        #expect(LastFMClient.metadata(for: middle, removeAlbumTypeSuffix: true,
+                                     removeAppleMusicEdition: true, usePrimaryArtist: false)["album"] == middle.album)
+    }
+
     @Test func primaryArtistPreservesBandNames() {
         for name in ["Earth, Wind & Fire", "earth, wind & fire", "Earth, Wind & Fire & Guest", "Earth, Wind & Fire, Guest"] {
             let track = PlayingTrack(title: "September", artist: name, album: "", duration: 180)

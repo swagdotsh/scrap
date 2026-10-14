@@ -268,6 +268,7 @@ final class LastFMClient: ObservableObject {
         Self.metadata(
             for: track,
             removeAlbumTypeSuffix: defaults.bool(forKey: DefaultsKey.removeAlbumTypeSuffix),
+            removeAppleMusicEdition: defaults.bool(forKey: "removeAppleMusicEdition"),
             usePrimaryArtist: defaults.bool(forKey: DefaultsKey.usePrimaryArtist),
             preservedArtistNames: defaults.string(forKey: "preservedArtistNames") ?? Self.defaultPreservedArtistNames
         )
@@ -278,11 +279,16 @@ final class LastFMClient: ObservableObject {
     static func metadata(
         for track: PlayingTrack,
         removeAlbumTypeSuffix: Bool,
+        removeAppleMusicEdition: Bool = false,
         usePrimaryArtist: Bool,
         preservedArtistNames: String = defaultPreservedArtistNames
     ) -> [String: String] {
         var album = track.album
         if removeAlbumTypeSuffix {
+            let editionSuffix = " (Apple Music Edition)"
+            if removeAppleMusicEdition, album.hasSuffix(editionSuffix) {
+                album.removeLast(editionSuffix.count)
+            }
             for suffix in [" - Single", " - EP"] where album.hasSuffix(suffix) {
                 album.removeLast(suffix.count)
                 break

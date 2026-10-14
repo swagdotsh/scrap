@@ -242,6 +242,7 @@ private struct PreferencesView: View {
     @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
     @AppStorage("showInDock") private var showInDock = true
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
+    @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @AppStorage("scrobbleAppleMusic") private var scrobbleAppleMusic = true
@@ -296,6 +297,15 @@ private struct PreferencesView: View {
                     Text("Example: bfo2\nSummrs - What We Have - EP (scrobbling as What We Have)")
                         .font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if removeAlbumTypeSuffix {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Toggle("Include (Apple Music Edition)", isOn: $removeAppleMusicEdition)
+                        Text("Example: Out\nSoFaygo - Pink Heartz (Apple Music Edition) (scrobbling as Pink Heartz)")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.leading, 20)
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
