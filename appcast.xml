@@ -3,6 +3,26 @@
     <channel>
         <title>scrap</title>
         <item>
+            <title>1.6</title>
+            <pubDate>Wed, 14 Oct 2026 14:01:12 +0200</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.6</link>
+            <sparkle:version>1.6</sparkle:version>
+            <sparkle:shortVersionString>1.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[## Now Playing
+- Added a heart beside the track name showing whether it is loved on Last.fm. Click it to love or unlove the track without changing Apple Music favorites.
+
+## Settings
+- Added **Love favorited songs (Apple Music)** to automatically love the current song on Last.fm when it is favorited in Apple Music, including favorites added during playback.
+
+## Menu bar
+- The Scrap popup now closes when you click outside it, including clicks in other Scrap windows.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.5...v1.6
+]]></description>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.6/scrap-v1.6-universal.zip" length="3587834" type="application/octet-stream" sparkle:edSignature="xiPWRdYdOrZ4Nyf2TFrq4m6XJuXTv/kRKOmMMn0XRK5i9t1RVB0JS3GGY7cbc/vTLYYuclaXuaYbucOquaWcBw=="/>
+        </item>
+        <item>
             <title>1.5</title>
             <pubDate>Wed, 30 Sep 2026 10:51:43 +0200</pubDate>
             <link>https://github.com/swagdotsh/scrap/releases/tag/v1.5</link>
