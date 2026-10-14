@@ -1,9 +1,112 @@
 import Foundation
+import AppKit
+import ImageIO
+import UniformTypeIdentifiers
 import Testing
 @testable import scrap
 
 @MainActor
 struct scrapTests {
+    private func animatedArtworkData() throws -> Data {
+        let data = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(data, UTType.gif.identifier as CFString, 2, nil))
+        for red in [CGFloat(0), CGFloat(1)] {
+            let context = try #require(CGContext(data: nil, width: 4, height: 2, bitsPerComponent: 8,
+                                                 bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.setFillColor(red: red, green: 0, blue: 1 - red, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 2))
+            CGImageDestinationAddImage(destination, try #require(context.makeImage()),
+                                       [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.1]] as CFDictionary)
+        }
+        #expect(CGImageDestinationFinalize(destination))
+        return data as Data
+    }
+
+    @Test func albumArtworkPreservesGIFFramesAndFillsItsBounds() throws {
+        let image = try #require(AlbumArtwork.decode(animatedArtworkData()))
+        let representation = try #require(image.representations.first as? NSBitmapImageRep)
+        #expect((representation.value(forProperty: .frameCount) as? NSNumber)?.intValue == 2)
+
+        let view = AlbumArtwork.ArtworkContainer(frame: NSRect(x: 0, y: 0, width: 44, height: 44))
+        view.imageView.image = image
+        view.layout()
+        #expect(view.imageView.animates)
+        #expect(view.imageView.frame == NSRect(x: -22, y: 0, width: 88, height: 44))
+        #expect(view.hitTest(NSPoint(x: 22, y: 22)) == nil)
+    }
+
+    @Test func stillArtworkSkipsAnimatedAndBrokenCandidatesAndStopsAtStill() async throws {
+        let gif = try animatedArtworkData()
+        #expect(ArtworkCandidates.isAnimated(gif))
+        let source = try #require(CGImageSourceCreateWithData(gif as CFData, nil))
+        let frame = try #require(CGImageSourceCreateImageAtIndex(source, 1, nil))
+        let png = try #require(NSBitmapImageRep(cgImage: frame).representation(using: .png, properties: [:]))
+        #expect(!ArtworkCandidates.isAnimated(png))
+        let urls = (1...4).map { URL(string: "https://example.com/cover-\($0)")! }
+        var fetched: [URL] = []
+        let image = await ArtworkCandidates.loadStill(urls: [urls[0], urls[0]] + Array(urls.dropFirst())) { url in
+            fetched.append(url)
+            if url == urls[0] { return gif }
+            if url == urls[1] { return Data("invalid image".utf8) }
+            return png
+        }
+        #expect(fetched == Array(urls.prefix(3)))
+        let still = try #require(image)
+        let bitmap = NSBitmapImageRep(cgImage: try #require(still.cgImage(forProposedRect: nil, context: nil, hints: nil)))
+        let color = try #require(bitmap.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        #expect(color.redComponent > 0.9)
+
+        let fallback = try #require(await ArtworkCandidates.loadStill(urls: [urls[0]]) { _ in gif })
+        let fallbackData = try #require(fallback.tiffRepresentation)
+        #expect(!ArtworkCandidates.isAnimated(fallbackData))
+        let missing = await ArtworkCandidates.loadStill(urls: urls) { _ in nil }
+        #expect(missing == nil)
+    }
+
+    @Test func nowPlayingCanPreferAnimationAndFallsBackToStill() async throws {
+        let gif = try animatedArtworkData()
+        let still = try #require(ArtworkCandidates.stillImage(gif)?.tiffRepresentation)
+        let urls = (1...3).map { URL(string: "https://example.com/cover-\($0)")! }
+        var fetched: [URL] = []
+        let preferred = try #require(await ArtworkCandidates.loadNowPlaying(urls: urls, preferAnimated: true) { url in
+            fetched.append(url)
+            return url == urls[0] ? still : gif
+        })
+        #expect(fetched == Array(urls.prefix(2)))
+        let bitmap = try #require(preferred.representations.first as? NSBitmapImageRep)
+        #expect((bitmap.value(forProperty: .frameCount) as? NSNumber)?.intValue == 2)
+
+        fetched = []
+        let ordinary = try #require(await ArtworkCandidates.loadNowPlaying(urls: urls, preferAnimated: false) { url in
+            fetched.append(url)
+            return url == urls[0] ? still : gif
+        })
+        #expect(fetched == [urls[0]])
+        #expect(!ArtworkCandidates.isAnimated(try #require(ordinary.tiffRepresentation)))
+
+        fetched = []
+        let fallback = await ArtworkCandidates.loadNowPlaying(urls: urls, preferAnimated: true) { url in
+            fetched.append(url)
+            return url == urls[0] ? still : nil
+        }
+        #expect(fetched == urls)
+        #expect(fallback != nil)
+    }
+
+    @Test func coverCandidatesKeepPreferredOrderAndRemoveDuplicates() {
+        let rows = [
+            ["#text": "https://example.com/small"],
+            ["#text": "https://example.com/large"],
+            ["#text": "https://example.com/large"],
+            ["#text": "http://example.com/insecure"],
+            ["#text": ""]
+        ]
+        #expect(ArtworkCandidates.urls(rows).map(\.absoluteString) == ["https://example.com/large", "https://example.com/small"])
+        let link = MusicLink.parse(["name": "Album", "url": "https://last.fm/music/Artist/Album", "image": rows]).first
+        #expect(link?.imageAlternatives == ArtworkCandidates.urls(rows))
+    }
+
     private let track = PlayingTrack(title: "A&B + C", artist: "Artist", album: "Album", duration: 60)
 
     @Test func tagsTrimWhitespaceAndDeduplicateWithoutChangingSpelling() throws {

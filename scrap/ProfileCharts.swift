@@ -23,8 +23,8 @@ extension LastFMClient {
             if kind == "tracks", link.imageURL == nil, !Task.isCancelled,
                let data = try? await request(["method": "track.getInfo", "artist": artist, "track": link.name]),
                let track = data["track"] as? [String: Any], let album = track["album"] as? [String: Any] {
-                let images = album["image"] as? [[String: Any]] ?? []
-                link.imageURL = images.reversed().compactMap { ($0["#text"] as? String).flatMap(URL.init(string:)) }.first { $0.scheme == "https" }
+                link.imageAlternatives = ArtworkCandidates.urls(album["image"])
+                link.imageURL = link.imageAlternatives.first
             }
             let count = (row["playcount"] as? String).flatMap(Int.init) ?? row["playcount"] as? Int ?? 0
             if !entries.contains(where: { $0.id == link.id }) { entries.append(ProfileChartEntry(link: link, artist: artist, count: count)) }

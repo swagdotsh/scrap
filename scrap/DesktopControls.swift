@@ -238,6 +238,8 @@ private struct PreferencesView: View {
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var controller: PreferencesController
     @StateObject private var loginItem = LoginItemSettings()
+    @AppStorage("animatedAlbumCovers") private var animatedAlbumCovers = true
+    @AppStorage("prioritizeAnimatedCovers") private var prioritizeAnimatedCovers = false
     @AppStorage("appAppearance") private var appearance = AppAppearance.system.rawValue
     @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
     @AppStorage("showInDock") private var showInDock = true
@@ -278,6 +280,11 @@ private struct PreferencesView: View {
                     }
                 }
                 if let error = loginItem.error { Text(error).font(.caption).foregroundStyle(.red) }
+                Toggle("Animated covers in Now Playing", isOn: $animatedAlbumCovers)
+                if animatedAlbumCovers {
+                    Toggle("Prioritize fetching animated covers", isOn: $prioritizeAnimatedCovers)
+                        .padding(.leading, 20)
+                }
                 Picker("Appearance", selection: $appearance) {
                     ForEach(AppAppearance.allCases, id: \.rawValue) { Text($0.rawValue).tag($0.rawValue) }
                 }

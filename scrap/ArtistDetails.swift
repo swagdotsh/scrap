@@ -4,6 +4,7 @@ struct MusicLink: Identifiable {
     let name: String
     let url: URL
     var imageURL: URL? = nil
+    var imageAlternatives: [URL] = []
     var id: String { url.absoluteString }
 
     static func parse(_ value: Any?, limit: Int = 20) -> [MusicLink] {
@@ -16,10 +17,8 @@ struct MusicLink: Identifiable {
                   let host = url.host, host == "last.fm" || host.hasSuffix(".last.fm") else { return nil as MusicLink? }
             url.scheme = "https"
             guard let destination = url.url, seen.insert(destination).inserted else { return nil }
-            let images = row["image"] as? [[String: Any]] ?? []
-            let imageURL = images.reversed().compactMap { ($0["#text"] as? String).flatMap(URL.init(string:)) }
-                .first { $0.scheme == "https" && !$0.absoluteString.contains("2a96cbd8b46e442fc41c2b86b821562f") }
-            return MusicLink(name: name, url: destination, imageURL: imageURL)
+            let images = ArtworkCandidates.urls(row["image"])
+            return MusicLink(name: name, url: destination, imageURL: images.first, imageAlternatives: images)
         }.prefix(limit))
     }
 }

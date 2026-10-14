@@ -19,6 +19,8 @@ struct ContentView: View {
     @ObservedObject var client: LastFMClient
     @ObservedObject var updateChecker: UpdateChecker
     var isMenuBar = false
+    @AppStorage("animatedAlbumCovers") private var animatedAlbumCovers = true
+    @AppStorage("prioritizeAnimatedCovers") private var prioritizeAnimatedCovers = false
     @AppStorage("menuBarBackgroundOpacity") private var menuBarBackgroundOpacity = 0.95
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
@@ -106,10 +108,10 @@ struct ContentView: View {
             guard let track = listener.track else { return }
             await client.refreshLovedState(for: track)
         }
-        .task(id: detailTaskID) {
+        .task(id: "\(detailTaskID)-animated-\(animatedAlbumCovers && prioritizeAnimatedCovers)") {
             details = nil
             guard let track = listener.track else { return }
-            let result = await client.listeningDetails(for: artistDetailsTrack(track)) { partial in
+            let result = await client.listeningDetails(for: artistDetailsTrack(track), preferAnimatedCovers: animatedAlbumCovers && prioritizeAnimatedCovers) { partial in
                 guard !Task.isCancelled else { return }
                 details = partial
             }
@@ -159,8 +161,13 @@ struct ContentView: View {
         }
         HStack(alignment: .top, spacing: 20) {
             Group {
-                if let image = details?.coverImage {
-                    Image(nsImage: image).resizable().scaledToFill()
+                if animatedAlbumCovers, let image = details?.coverImage {
+                    AlbumArtwork(image: image)
+                } else if !animatedAlbumCovers, let url = details?.coverURL {
+                    RemoteAlbumArtwork(url: url, alternatives: details?.coverAlternatives ?? []) {
+                        RoundedRectangle(cornerRadius: 10).fill(.quaternary)
+                            .overlay(Image(systemName: "music.note").font(.system(size: 32)).foregroundStyle(.tertiary))
+                    }
                 } else {
                 RoundedRectangle(cornerRadius: 10).fill(.quaternary)
                     .overlay(Image(systemName: "music.note").font(.system(size: 32)).foregroundStyle(.tertiary))
@@ -308,7 +315,7 @@ struct ContentView: View {
                     ForEach(details.topAlbums) { item in
                         Link(destination: item.url) {
                             HStack(spacing: 8) {
-                                AsyncImage(url: item.imageURL) { image in image.resizable().scaledToFill() } placeholder: {
+                                RemoteAlbumArtwork(url: item.imageURL, alternatives: item.imageAlternatives) {
                                     RoundedRectangle(cornerRadius: 4).fill(.quaternary)
                                         .overlay(Image(systemName: "opticaldisc").foregroundStyle(.secondary))
                                 }
@@ -324,7 +331,7 @@ struct ContentView: View {
                     ForEach(details.topTracks) { item in
                         Link(destination: item.url) {
                             HStack(spacing: 8) {
-                                profileImage(item.imageURL, size: 32)
+                                profileImage(item.imageURL, size: 32, alternatives: item.imageAlternatives)
                                 Text(item.name).font(.callout)
                             }
                         }
@@ -373,8 +380,11 @@ struct ContentView: View {
                 Link(destination: track.trackURL) {
                     HStack(spacing: 12) {
                         Group {
-                            if let cover = details?.coverImage {
-                                Image(nsImage: cover).resizable().scaledToFill()
+                            if let url = details?.coverURL {
+                                RemoteAlbumArtwork(url: url, alternatives: details?.coverAlternatives ?? []) {
+                                    RoundedRectangle(cornerRadius: 6).fill(.quaternary)
+                                        .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+                                }
                             } else {
                                 RoundedRectangle(cornerRadius: 6).fill(.quaternary)
                                     .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
@@ -412,9 +422,7 @@ struct ContentView: View {
                 ForEach(recent) { row in
                     Link(destination: row.destination) {
                     HStack(spacing: 12) {
-                        AsyncImage(url: row.coverURL) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
+                        RemoteAlbumArtwork(url: row.coverURL, alternatives: row.coverAlternatives) {
                             RoundedRectangle(cornerRadius: 6).fill(.quaternary)
                                 .overlay(Image(systemName: "opticaldisc").foregroundStyle(.secondary))
                         }
@@ -510,8 +518,8 @@ struct ContentView: View {
         }
     }
 
-    private func profileImage(_ url: URL?, size: CGFloat, symbol: String = "opticaldisc") -> some View {
-        AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: {
+    private func profileImage(_ url: URL?, size: CGFloat, symbol: String = "opticaldisc", alternatives: [URL] = []) -> some View {
+        RemoteAlbumArtwork(url: url, alternatives: alternatives) {
             RoundedRectangle(cornerRadius: 6).fill(.quaternary)
                 .overlay(Image(systemName: symbol).foregroundStyle(.secondary))
         }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 6))
@@ -525,7 +533,7 @@ struct ContentView: View {
                 Link(destination: item.link.url) {
                     HStack(spacing: 10) {
                         if artists { ArtistPortrait(name: item.link.name, size: 36) }
-                        else { profileImage(item.link.imageURL, size: 36) }
+                        else { profileImage(item.link.imageURL, size: 36, alternatives: item.link.imageAlternatives) }
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.link.name).font(.callout).lineLimit(2)
                             if !item.artist.isEmpty { Text(item.artist).font(.caption).foregroundStyle(.secondary) }

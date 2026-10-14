@@ -4,6 +4,7 @@ import AppKit
 struct ListeningDetails {
     var coverImage: NSImage?
     var coverURL: URL?
+    var coverAlternatives: [URL] = []
     var artistCount: Int?
     var trackCount: Int?
     var trackTags: [MusicLink] = []
@@ -23,6 +24,7 @@ struct RecentScrobble: Identifiable {
     let artist: String
     let date: Date
     var coverURL: URL? = nil
+    var coverAlternatives: [URL] = []
     var trackURL: URL? = nil
 
     var destination: URL {
@@ -41,19 +43,23 @@ struct ListenerProfile {
 }
 
 extension LastFMClient {
-    func listeningDetails(for track: PlayingTrack, onUpdate: ((ListeningDetails) -> Void)? = nil) async -> ListeningDetails {
+    func listeningDetails(for track: PlayingTrack, preferAnimatedCovers: Bool = false, onUpdate: ((ListeningDetails) -> Void)? = nil) async -> ListeningDetails {
         var details = ListeningDetails()
         guard let username, isConfigured else { return details }
         if !track.album.isEmpty, !Task.isCancelled {
             if let json = try? await request(["method": "album.getInfo", "artist": track.artist, "album": track.album]),
-               let album = json["album"] as? [String: Any] { details.coverURL = Self.cover(album["image"]) }
+               let album = json["album"] as? [String: Any] {
+                details.coverAlternatives = ArtworkCandidates.urls(album["image"])
+                details.coverURL = details.coverAlternatives.first
+            }
         }
-        if let url = details.coverURL, !Task.isCancelled {
-            var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-            request.timeoutInterval = 10
-            if let (data, response) = try? await URLSession.shared.data(for: request),
-               (response as? HTTPURLResponse)?.statusCode == 200 {
-                details.coverImage = NSImage(data: data)
+        if !Task.isCancelled {
+            details.coverImage = await ArtworkCandidates.loadNowPlaying(urls: details.coverAlternatives, preferAnimated: preferAnimatedCovers) { url in
+                var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
+                request.timeoutInterval = 10
+                guard let (data, response) = try? await URLSession.shared.data(for: request),
+                      (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+                return data
             }
         }
         guard !Task.isCancelled else { return details }
@@ -91,7 +97,8 @@ extension LastFMClient {
                     guard !Task.isCancelled else { return details }
                     if let json = try? await request(["method": "track.getInfo", "artist": track.artist, "track": details.artist.topTracks[index].name]),
                        let info = json["track"] as? [String: Any], let album = info["album"] as? [String: Any] {
-                        details.artist.topTracks[index].imageURL = Self.cover(album["image"])
+                        details.artist.topTracks[index].imageAlternatives = ArtworkCandidates.urls(album["image"])
+                        details.artist.topTracks[index].imageURL = details.artist.topTracks[index].imageAlternatives.first
                     }
                 }
             }
@@ -113,7 +120,7 @@ extension LastFMClient {
             guard let date = row["date"] as? [String: Any], let timestamp = Self.count(date["uts"]),
                   let title = row["name"] as? String else { return nil }
             let artist = row["artist"] as? [String: Any]
-            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist?["#text"] as? String ?? "", date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: Self.cover(row["image"]), trackURL: MusicLink.parse(row).first?.url)
+            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist?["#text"] as? String ?? "", date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: Self.cover(row["image"]), coverAlternatives: ArtworkCandidates.urls(row["image"]), trackURL: MusicLink.parse(row).first?.url)
         }
     }
 
