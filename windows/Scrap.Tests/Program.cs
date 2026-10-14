@@ -175,4 +175,54 @@ Test("Artwork candidates preserve preferred order and remove duplicates", () =>
     var rows = System.Text.Json.Nodes.JsonNode.Parse("""[{"#text":"https://example.com/small"},{"#text":"https://example.com/large"},{"#text":"https://example.com/large"},{"#text":"http://example.com/insecure"}]""");
     Equal("https://example.com/large,https://example.com/small", string.Join(",", MusicPresentation.ImageUrls(rows)));
 });
+Test("Updater accepts old and compatible Windows release tags", () =>
+{
+    foreach (var tag in new[] { "v1.1-windows", "windows-v1.1", "windows-1.1", "v1.1" })
+        Equal(new Version(1, 1), UpdateRelease.ParseVersion(tag));
+    Equal<Version?>(null, UpdateRelease.ParseVersion("nonsense"));
+});
+Test("Updater ignores drafts, prereleases, and macOS releases and selects newest Windows", () =>
+{
+    var releases = System.Text.Json.Nodes.JsonNode.Parse("""[{"tag_name":"v1.1-windows","target_commitish":"windows-app-sdk"},{"tag_name":"windows-v1.2.0","target_commitish":"windows-app-sdk"},{"tag_name":"v9.0","target_commitish":"main"},{"tag_name":"windows-v9.0","target_commitish":"windows-app-sdk","draft":true},{"tag_name":"windows-v8.0","target_commitish":"windows-app-sdk","prerelease":true}]""")!.AsArray();
+    Equal("windows-v1.2.0", UpdateRelease.Latest(releases)?["tag_name"]?.ToString());
+});
+Test("Updater verifies archive bytes and rejects malformed or changed digests", () =>
+{
+    var bytes = System.Text.Encoding.UTF8.GetBytes("release");
+    var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+    Equal(true, UpdateRelease.Verify(bytes, "sha256:" + hash));
+    Equal(false, UpdateRelease.Verify([1, 2, 3], "sha256:" + hash));
+    foreach (var digest in new[] { "", "sha256:xyz", "sha256:" + new string('z', 64), "sha512:" + hash }) Equal(false, UpdateRelease.Verify(bytes, digest));
+});
+Test("Updater installs and preserves credentials, and rolls back if launch fails", () =>
+{
+    foreach (var failLaunch in new[] { false, true })
+    {
+        var root = Path.Combine(Path.GetTempPath(), "Scrap-update-test-" + Guid.NewGuid().ToString("N"));
+        var install = Path.Combine(root, "installed app's folder");
+        var stage = Path.Combine(root, "stage");
+        Directory.CreateDirectory(install); Directory.CreateDirectory(stage);
+        File.WriteAllText(Path.Combine(install, "Scrap.exe"), "old");
+        File.WriteAllText(Path.Combine(install, ".env"), "existing credentials");
+        File.WriteAllText(Path.Combine(stage, "Scrap.exe"), "new");
+        var archive = Path.Combine(root, "update.zip"); File.WriteAllText(archive, "fixture");
+        var script = Path.Combine(root, "install.ps1");
+        var stub = "function Start-Process { param($FilePath, $ArgumentList) if (-not (Test-Path -LiteralPath $FilePath)) { throw 'Missing app' }; ";
+        if (failLaunch) stub += "if ([IO.File]::ReadAllText($FilePath) -eq 'new') { throw 'Simulated launch failure' }; ";
+        stub += "}\n";
+        File.WriteAllText(script, stub + UpdateInstaller.Script(install, stage, stage, archive, int.MaxValue, true));
+        var info = new System.Diagnostics.ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script }) info.ArgumentList.Add(arg);
+        using var process = System.Diagnostics.Process.Start(info)!;
+        var output = process.StandardOutput.ReadToEnd(); var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (failLaunch) Equal(true, process.ExitCode != 0);
+        else if (process.ExitCode != 0) throw new Exception(output + error);
+        Equal(failLaunch ? "old" : "new", File.ReadAllText(Path.Combine(install, "Scrap.exe")));
+        Equal("existing credentials", File.ReadAllText(Path.Combine(install, ".env")));
+        Equal(failLaunch, File.Exists(archive));
+        if (!root.StartsWith(Path.Combine(Path.GetTempPath(), "Scrap-update-test-"), StringComparison.OrdinalIgnoreCase)) throw new Exception("Invalid test path");
+        Directory.Delete(root, true);
+    }
+});
 Console.WriteLine($"{passed} tests passed.");

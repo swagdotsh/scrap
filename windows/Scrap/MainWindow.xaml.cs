@@ -468,25 +468,17 @@ public sealed partial class MainWindow : Window
     {
         UpdateCheckStatus.Text = "Checking for updates…";
         using var http = new HttpClient();
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Scrap-Windows/1.1");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Scrap-Windows/" + typeof(MainWindow).Assembly.GetName().Version?.ToString(3));
         http.Timeout = TimeSpan.FromSeconds(25);
         var releases = await http.GetFromJsonAsync<JsonArray>("https://api.github.com/repos/swagdotsh/scrap/releases?per_page=100")
             ?? throw new InvalidOperationException("GitHub returned no release information.");
-        var candidates = LastFmClient.Rows(releases)
-            .Where(r => LastFmClient.Text(r["draft"]) != "true" && LastFmClient.Text(r["prerelease"]) != "true" &&
-                string.Equals(LastFmClient.Text(r["target_commitish"]), "windows-app-sdk", StringComparison.OrdinalIgnoreCase))
-            .Select(r => (Release: r, Tag: LastFmClient.Text(r["tag_name"])))
-            .Select(candidate => (candidate.Release, candidate.Tag, Version: ParseReleaseVersion(candidate.Tag)))
-            .Where(candidate => candidate.Version != null)
-            .OrderByDescending(candidate => candidate.Version)
-            .ToArray();
-        if (candidates.Length == 0)
+        var release = UpdateRelease.Latest(releases);
+        if (release == null)
         {
             UpdateCheckStatus.Text = "No published releases were found for the windows-app-sdk branch.";
             return;
         }
-        var release = candidates[0].Release;
-        var latest = candidates[0].Version!;
+        var latest = UpdateRelease.ParseVersion(LastFmClient.Text(release["tag_name"]))!;
         var currentVersion = typeof(MainWindow).Assembly.GetName().Version ?? new Version(1, 1);
         if (latest <= currentVersion) { UpdateCheckStatus.Text = "Scrap is up to date (" + currentVersion + ")."; return; }
         var asset = LastFmClient.Rows(release["assets"]).FirstOrDefault(a =>
@@ -502,9 +494,7 @@ public sealed partial class MainWindow : Window
         UpdateCheckStatus.Text = $"Scrap {latest} is available. Downloading and verifying…";
         var bytes = await http.GetByteArrayAsync(uri);
         if (bytes.Length == 0 || bytes.Length > 500_000_000) throw new InvalidOperationException("The update archive size is invalid.");
-        var expected = digest[7..].ToLowerInvariant();
-        var actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-        if (!CryptographicOperations.FixedTimeEquals(Convert.FromHexString(expected), Convert.FromHexString(actual)))
+        if (!UpdateRelease.Verify(bytes, digest))
             throw new InvalidOperationException("The update archive failed SHA-256 verification.");
         var archive = Path.Combine(Path.GetTempPath(), "Scrap-update-" + latest + ".zip");
         await File.WriteAllBytesAsync(archive, bytes);
@@ -518,12 +508,6 @@ public sealed partial class MainWindow : Window
         ScheduleVerifiedInstall(archive, latest);
     }
 
-    private static Version? ParseReleaseVersion(string tag)
-    {
-        if (tag.StartsWith("windows-", StringComparison.OrdinalIgnoreCase)) tag = tag["windows-".Length..];
-        return Version.TryParse(tag.TrimStart('v'), out var version) ? version : null;
-    }
-
     private void ScheduleVerifiedInstall(string archive, Version version)
     {
         var stage = Path.Combine(Path.GetTempPath(), "Scrap-stage-" + Guid.NewGuid().ToString("N"));
@@ -534,25 +518,12 @@ public sealed partial class MainWindow : Window
         var payload = Path.GetDirectoryName(exe)!;
         var script = Path.Combine(Path.GetTempPath(), "Scrap-install-" + Guid.NewGuid().ToString("N") + ".ps1");
         var install = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var backup = install + ".previous";
-        var relaunchArgs = backgroundLaunch ? "--background" : "";
-        File.WriteAllText(script, $$"""
-            $ErrorActionPreference = 'Stop'
-            $p = '{{PowerShellEscape(install)}}'; $b = '{{PowerShellEscape(backup)}}'; $s = '{{PowerShellEscape(payload)}}'; $a = '{{relaunchArgs}}'
-            Start-Sleep -Seconds 2
-            if (Test-Path -LiteralPath $b) { Remove-Item -LiteralPath $b -Recurse -Force }
-            Move-Item -LiteralPath $p -Destination $b
-            try { Move-Item -LiteralPath $s -Destination $p; $envFile = Join-Path $b '.env'; if (Test-Path -LiteralPath $envFile -PathType Leaf) { Copy-Item -LiteralPath $envFile -Destination (Join-Path $p '.env') }; if ($a) { Start-Process -FilePath (Join-Path $p 'Scrap.exe') -ArgumentList $a } else { Start-Process -FilePath (Join-Path $p 'Scrap.exe') } }
-            catch { if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force }; Move-Item -LiteralPath $b -Destination $p; if ($a) { Start-Process -FilePath (Join-Path $p 'Scrap.exe') -ArgumentList $a } else { Start-Process -FilePath (Join-Path $p 'Scrap.exe') }; throw }
-            Remove-Item -LiteralPath '{{PowerShellEscape(stage)}}' -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -LiteralPath '{{PowerShellEscape(archive)}}' -Force -ErrorAction SilentlyContinue
-            """);
+        File.WriteAllText(script, UpdateInstaller.Script(install, payload, stage, archive, Environment.ProcessId, backgroundLaunch));
         Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script}\"") { CreateNoWindow = true, UseShellExecute = false });
         UpdateCheckStatus.Text = $"Installing Scrap {version} and restarting…";
         quitting = true; Close();
     }
 
-    private static string PowerShellEscape(string value) => value.Replace("'", "''");
     private void ToggleScrobbling(object sender, RoutedEventArgs e)
     {
         if (!ready) return;
