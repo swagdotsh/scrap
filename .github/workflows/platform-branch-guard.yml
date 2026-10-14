@@ -1,0 +1,28 @@
+name: Platform branch guard
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  platform-branch-guard:
+    name: Platform branch guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep the Windows branch separate from main
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          if [[ "$HEAD_BRANCH" == "windows-app-sdk" ]]; then
+            echo "::error::windows-app-sdk must remain separate from main. Port individual changes instead."
+            exit 1
+          fi
+          echo "Branch separation check passed."
