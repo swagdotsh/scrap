@@ -28,11 +28,14 @@ public static class MusicPresentation
     public static string Biography(string html) => WebUtility.HtmlDecode(Regex.Replace(
         Regex.Replace(html, "<a\\b[^>]*>.*?</a>", "", RegexOptions.Singleline | RegexOptions.IgnoreCase), "<[^>]+>", "")).Trim();
 
-    public static Uri? ImageUrl(JsonNode? images)
+    public static Uri? ImageUrl(JsonNode? images) => ImageUrls(images).FirstOrDefault();
+
+    public static IEnumerable<Uri> ImageUrls(JsonNode? images)
     {
-        if (images is not JsonArray rows) return null;
+        if (images is not JsonArray rows) yield break;
+        var seen = new HashSet<Uri>();
         foreach (var row in rows.Reverse())
-            if (Uri.TryCreate(row?["#text"]?.ToString(), UriKind.Absolute, out var uri) && uri.Scheme == "https" && !uri.AbsolutePath.Contains("2a96cbd8b46e442fc41c2b86b821562f")) return uri;
-        return null;
+            if (Uri.TryCreate(row?["#text"]?.ToString(), UriKind.Absolute, out var uri) && uri.Scheme == "https" &&
+                !uri.AbsolutePath.Contains("2a96cbd8b46e442fc41c2b86b821562f") && seen.Add(uri)) yield return uri;
     }
 }

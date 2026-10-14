@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
     private PlayingTrack? current;
     private bool deviceIsPlaying;
     private string? accountInfoOwner;
+    private bool animatedCovers = true, preferAnimatedCovers;
     private MetadataCleanup cleanup = MetadataCleanup.Defaults;
     private readonly bool backgroundLaunch = Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--background", StringComparison.OrdinalIgnoreCase));
 
@@ -46,7 +47,7 @@ public sealed partial class MainWindow : Window
             presenter.IsMaximizable = false;
         }
         SystemBackdrop = new MicaBackdrop();
-        InstalledVersion.Text = "Scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.1.0");
+        InstalledVersion.Text = "Scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.2.0");
         engine.Scrobble += client.Enqueue;
         engine.NowPlaying += track => _ = RunAsync(() => client.NowPlayingAsync(track));
         client.AccountChanged += () => { engine.Reset(); revision++; if (ready) DispatcherQueue.TryEnqueue(() => { ClearDetails(); if (page == "playing") _ = RunAsync(LoadPageAsync); }); };
@@ -60,6 +61,13 @@ public sealed partial class MainWindow : Window
             FirstArtistCheck.IsChecked = cleanup.FirstArtistOnly;
             PreserveArtistsPanel.Visibility = cleanup.FirstArtistOnly ? Visibility.Visible : Visibility.Collapsed;
             AlbumSuffixCheck.IsChecked = cleanup.RemoveAlbumSuffixes;
+            AppleMusicEditionCheck.IsChecked = cleanup.RemoveAppleMusicEdition;
+            AppleMusicEditionCheck.Visibility = cleanup.RemoveAlbumSuffixes ? Visibility.Visible : Visibility.Collapsed;
+            animatedCovers = LocalStore.Load("animated-album-covers.json", true);
+            preferAnimatedCovers = LocalStore.Load("prefer-animated-covers.json", false);
+            AnimatedCoversCheck.IsChecked = animatedCovers;
+            PreferAnimatedCoversCheck.IsChecked = preferAnimatedCovers;
+            PreferAnimatedCoversCheck.IsEnabled = animatedCovers;
             PreservedArtistsBox.Text = string.Join(Environment.NewLine, cleanup.ArtistsToPreserve);
             ThemeChoice.SelectedIndex = LocalStore.Load("theme.json", "System") switch { "Light" => 1, "Dark" => 2, _ => 0 };
             DailyUpdateCheck.IsChecked = LocalStore.Load("daily-update-check.json", true);
@@ -253,7 +261,7 @@ public sealed partial class MainWindow : Window
                     string.Equals(current.Title, title, StringComparison.OrdinalIgnoreCase) &&
                     (string.Equals(current.Artist, artist, StringComparison.OrdinalIgnoreCase) || string.Equals(current.OriginalArtist, artist, StringComparison.OrdinalIgnoreCase));
                 var activity = localMatch ? "Now playing" : nowPlaying ? "Playing on another device" : LastFmClient.Text(row["date"]?["#text"]);
-                AddRow(title, $"{artist} · {LastFmClient.Text(row["album"]?["#text"])}\n{activity}", MusicPresentation.ImageUrl(row["image"]), MusicPresentation.TrackUrl(artist, title), localMatch);
+                AddRow(title, $"{artist} · {LastFmClient.Text(row["album"]?["#text"])}\n{activity}", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.TrackUrl(artist, title), localMatch);
             }
         }
         else if (selected == "friends")
@@ -275,25 +283,25 @@ public sealed partial class MainWindow : Window
                 var name = LastFmClient.Text(row["name"]);
                 if (name.Length == 0 || !seenFriends.Add(name)) continue;
                 var recent = LastFmClient.Rows(row["recenttrack"] ?? row["recenttracks"]?["track"]).FirstOrDefault();
-                AddRow(name, recent == null ? "No recent listening available" : $"{LastFmClient.Text(recent["name"])} · {LastFmClient.Text(recent["artist"]?["#text"])}", MusicPresentation.ImageUrl(row["image"]), MusicPresentation.UserUrl(name));
+                AddRow(name, recent == null ? "No recent listening available" : $"{LastFmClient.Text(recent["name"])} · {LastFmClient.Text(recent["artist"]?["#text"])}", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.UserUrl(name));
             }
         }
         else
         {
-            AddRow(LastFmClient.Text(json["user"]?["name"]), $"{LastFmClient.Text(json["user"]?["playcount"])} scrobbles · {LastFmClient.Text(json["user"]?["artist_count"])} artists", MusicPresentation.ImageUrl(json["user"]?["image"]), MusicPresentation.UserUrl(user));
+            AddRow(LastFmClient.Text(json["user"]?["name"]), $"{LastFmClient.Text(json["user"]?["playcount"])} scrobbles · {LastFmClient.Text(json["user"]?["artist_count"])} artists", MusicPresentation.ImageUrls(json["user"]?["image"]), MusicPresentation.UserUrl(user));
             foreach (var kind in new[] { "artists", "albums", "tracks" })
             {
                 var chart = await client.RequestAsync(new() { ["method"] = "user.getTop" + char.ToUpperInvariant(kind[0]) + kind[1..], ["user"] = user, ["period"] = "overall", ["limit"] = "5" });
                 if (version != revision || closed) return;
                 AddRow("Top " + kind + " · All time", "");
                 foreach (var row in LastFmClient.Rows(chart["top" + kind]?[kind[..^1]]))
-                    AddRow(LastFmClient.Text(row["name"]), $"{LastFmClient.Text(row["playcount"])} plays", MusicPresentation.ImageUrl(row["image"]), MusicPresentation.ChartUrl(kind, row));
+                    AddRow(LastFmClient.Text(row["name"]), $"{LastFmClient.Text(row["playcount"])} plays", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.ChartUrl(kind, row));
             }
         }
         if (ResultsPanel.Children.Count == 0) AddRow("Nothing here yet", "Your Last.fm activity will appear here.");
     }
 
-    private void AddRow(string title, string detail, Uri? image = null, Uri? destination = null, bool highlighted = false)
+    private void AddRow(string title, string detail, IEnumerable<Uri>? images = null, Uri? destination = null, bool highlighted = false)
     {
         var stack = new StackPanel { Spacing = 4 };
         stack.Children.Add(new TextBlock { Text = title, FontSize = 17, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
@@ -301,7 +309,15 @@ public sealed partial class MainWindow : Window
         var row = new Grid { ColumnSpacing = 12 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        if (image != null) row.Children.Add(new Image { Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(image), Width = 56, Height = 56, Stretch = Stretch.UniformToFill });
+        var candidates = images?.ToArray() ?? [];
+        if (candidates.Length > 0)
+        {
+            var cover = new Image { Width = 56, Height = 56, Stretch = Stretch.UniformToFill };
+            row.Children.Add(cover);
+            var viewRevision = revision;
+            var viewPage = page;
+            _ = LoadStillArtworkAsync(cover, candidates, () => !closed && revision == viewRevision && page == viewPage);
+        }
         Grid.SetColumn(stack, 1); row.Children.Add(stack);
         FrameworkElement content = row;
         if (destination != null)
@@ -363,7 +379,9 @@ public sealed partial class MainWindow : Window
     {
         if (!ready) return;
         cleanup = new MetadataCleanup(FirstArtistCheck.IsChecked == true, AlbumSuffixCheck.IsChecked == true,
-            PreservedArtistsBox.Text.Split(Environment.NewLine, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+            PreservedArtistsBox.Text.Split(Environment.NewLine, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries),
+            AppleMusicEditionCheck.IsChecked == true);
+        AppleMusicEditionCheck.Visibility = cleanup.RemoveAlbumSuffixes ? Visibility.Visible : Visibility.Collapsed;
         PreserveArtistsPanel.Visibility = cleanup.FirstArtistOnly ? Visibility.Visible : Visibility.Collapsed;
         listener.Cleanup = cleanup;
         try { LocalStore.Save("metadata-cleanup.json", cleanup); }
@@ -372,9 +390,27 @@ public sealed partial class MainWindow : Window
         engine.Reset();
         current = null;
     }
+    private async void ArtworkPreferencesChanged(object sender, RoutedEventArgs e)
+    {
+        if (!ready) return;
+        animatedCovers = AnimatedCoversCheck.IsChecked == true;
+        preferAnimatedCovers = PreferAnimatedCoversCheck.IsChecked == true;
+        PreferAnimatedCoversCheck.IsEnabled = animatedCovers;
+        try
+        {
+            LocalStore.Save("animated-album-covers.json", animatedCovers);
+            LocalStore.Save("prefer-animated-covers.json", preferAnimatedCovers);
+            var version = ++revision;
+            AlbumArtwork.Source = null;
+            await RunAsync(() => LoadDetailsAsync(version));
+        }
+        catch (Exception ex) { ShowError(ex); }
+    }
     private void RefreshCleanupPreview()
     {
         CleanupPreview.Text = "Artist example:\nHours In Silence\nDrake & 21 Savage (scrobbling as Drake) - Her Loss\n\nAlbum example:\nbfo2\nSummrs - What We Have - EP (scrobbling as What we have)";
+        CleanupPreview.Text += "\n\nApple Music Edition example:\nSoFaygo - " +
+            ScrobbleLabel("Pink Heartz (Apple Music Edition)", MetadataCleanup.PreviewAlbum("Pink Heartz (Apple Music Edition)", cleanup));
     }
     private static string ScrobbleLabel(string? original, string cleaned) =>
         !string.IsNullOrWhiteSpace(original) && !string.Equals(original, cleaned, StringComparison.Ordinal)

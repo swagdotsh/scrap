@@ -155,4 +155,24 @@ Test("Startup rejects invalid paths and does not mask a failed save", () =>
     catch (UnauthorizedAccessException) { }
     Equal(false, denied.Enabled);
 });
+Test("Apple Music Edition cleanup requires both settings and only removes a suffix", () =>
+{
+    foreach (var parent in new[] { false, true })
+    foreach (var edition in new[] { false, true })
+    {
+        var settings = new MetadataCleanup(RemoveAlbumSuffixes: parent, RemoveAppleMusicEdition: edition);
+        var original = track with { Album = "Pink Heartz (Apple Music Edition)" };
+        Equal(parent && edition ? "Pink Heartz" : original.Album, settings.Apply(original, "AppleMusic").Album);
+        Equal(original.Album, settings.Apply(original, "Spotify").Album);
+        Equal("Album (Apple Music Edition) Deluxe", settings.Apply(track with { Album = "Album (Apple Music Edition) Deluxe" }, "AppleMusic").Album);
+    }
+    var both = new MetadataCleanup(RemoveAlbumSuffixes: true, RemoveAppleMusicEdition: true);
+    Equal("Album", both.Apply(track with { Album = "Album - EP (Apple Music Edition)" }, "AppleMusic").Album);
+    Equal("Pink Heartz (Apple Music Edition)", MetadataCleanup.Defaults.Apply(track with { Album = "Pink Heartz (Apple Music Edition)" }, "AppleMusic").Album);
+});
+Test("Artwork candidates preserve preferred order and remove duplicates", () =>
+{
+    var rows = System.Text.Json.Nodes.JsonNode.Parse("""[{"#text":"https://example.com/small"},{"#text":"https://example.com/large"},{"#text":"https://example.com/large"},{"#text":"http://example.com/insecure"}]""");
+    Equal("https://example.com/large,https://example.com/small", string.Join(",", MusicPresentation.ImageUrls(rows)));
+});
 Console.WriteLine($"{passed} tests passed.");

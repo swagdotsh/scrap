@@ -57,6 +57,10 @@
                     <TextBlock Text="Scrobble metadata cleanup" FontWeight="SemiBold"/>
                     <CheckBox x:Name="FirstArtistCheck" Content="Use the first artist only" Click="CleanupChanged"/>
                     <CheckBox x:Name="AlbumSuffixCheck" Content="Remove album suffixes" Click="CleanupChanged"/>
+                    <CheckBox x:Name="AppleMusicEditionCheck" Content="Include (Apple Music Edition)" Margin="20,0,0,0" Visibility="Collapsed" Click="CleanupChanged"/>
+                    <TextBlock Text="Album artwork" FontWeight="SemiBold"/>
+                    <CheckBox x:Name="AnimatedCoversCheck" Content="Animate Now Playing album covers" IsChecked="True" Click="ArtworkPreferencesChanged"/>
+                    <CheckBox x:Name="PreferAnimatedCoversCheck" Content="Prefer animated covers when available" Margin="20,0,0,0" Click="ArtworkPreferencesChanged"/>
                     <StackPanel x:Name="PreserveArtistsPanel" Spacing="6" Visibility="Collapsed"><TextBlock Text="Artists to preserve (one per line)"/><TextBox x:Name="PreservedArtistsBox" AcceptsReturn="True" MinHeight="72" PlaceholderText="Earth, Wind &amp; Fire" TextChanged="PreservedArtistsChanged"/></StackPanel>
                     <TextBlock x:Name="CleanupPreview" TextWrapping="Wrap" Opacity="0.75"/>
                     <Button Content="Retry pending scrobbles" Click="Retry" HorizontalAlignment="Left" />

@@ -1,6 +1,6 @@
 namespace Scrap;
 
-public sealed record MetadataCleanup(bool FirstArtistOnly = false, bool RemoveAlbumSuffixes = false, string[]? PreservedArtists = null)
+public sealed record MetadataCleanup(bool FirstArtistOnly = false, bool RemoveAlbumSuffixes = false, string[]? PreservedArtists = null, bool RemoveAppleMusicEdition = false)
 {
     public static MetadataCleanup Defaults => new(false, false, ["Earth, Wind & Fire"]);
     public string[] ArtistsToPreserve => (PreservedArtists ?? ["Earth, Wind & Fire"])
@@ -21,6 +21,9 @@ public sealed record MetadataCleanup(bool FirstArtistOnly = false, bool RemoveAl
         var album = track.Album;
         if (isAppleMusic && RemoveAlbumSuffixes)
         {
+            const string editionSuffix = " (Apple Music Edition)";
+            if (RemoveAppleMusicEdition && album.EndsWith(editionSuffix, StringComparison.Ordinal))
+                album = album[..^editionSuffix.Length];
             album = System.Text.RegularExpressions.Regex.Replace(album,
                 @"\s*(?:[-–—:]\s*(?:single|ep|deluxe(?: edition)?|expanded edition|bonus tracks?|remaster(?:ed)?(?: \d{4})?|anniversary edition|commentary|soundtrack)|\s*\((?:deluxe(?: edition)?|expanded edition|bonus tracks?|remaster(?:ed)?(?: \d{4})?|\d{4} remaster|anniversary edition|soundtrack)[^)]*\))\s*$",
                 "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();

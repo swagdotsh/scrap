@@ -63,6 +63,7 @@ public sealed partial class MainWindow
 
         var coverTask = Part("Album artwork", async () =>
         {
+            BitmapImage? deviceCover = null;
             if (thumbnail != null)
             {
                 try
@@ -70,18 +71,20 @@ public sealed partial class MainWindow
                     using var stream = await thumbnail.OpenReadAsync();
                     if (stream.Size > 0)
                     {
-                        var bitmap = new BitmapImage();
-                        await bitmap.SetSourceAsync(stream);
-                        if (Active()) AlbumArtwork.Source = bitmap;
-                        return;
+                        deviceCover = new BitmapImage { AutoPlay = animatedCovers };
+                        await deviceCover.SetSourceAsync(stream);
+                        if (Active()) AlbumArtwork.Source = deviceCover;
+                        if (animatedCovers && deviceCover.IsAnimatedBitmap) return;
+                        if (!animatedCovers && !deviceCover.IsAnimatedBitmap) return;
                     }
                 }
-                catch {  }
+                catch { }
             }
-            if (!client.Configured || string.IsNullOrWhiteSpace(track.Album)) return;
+            if (!Active() || !client.Configured || string.IsNullOrWhiteSpace(track.Album)) return;
             var album = await client.RequestAsync(new() { ["method"] = "album.getInfo", ["artist"] = track.Artist, ["album"] = track.Album });
-            var url = MusicPresentation.ImageUrl(album["album"]?["image"]);
-            if (Active() && url != null) AlbumArtwork.Source = new BitmapImage(url);
+            var bitmap = await ArtworkLoader.LoadAsync(MusicPresentation.ImageUrls(album["album"]?["image"]),
+                animatedCovers, animatedCovers && preferAnimatedCovers, artworkHttp.GetByteArrayAsync, Active);
+            if (Active()) AlbumArtwork.Source = bitmap ?? deviceCover;
         });
         var portraitTask = Part("Artist portrait", async () =>
         {
@@ -140,11 +143,13 @@ public sealed partial class MainWindow
                 if (name.Length == 0) continue;
                 var target = kind == "Tracks" ? MusicPresentation.TrackUrl(track.Artist, name) : MusicPresentation.AlbumUrl(track.Artist, name);
                 var link = MusicLink(name, target);
-                var image = MusicPresentation.ImageUrl(item["image"]);
-                if (image != null)
+                var images = MusicPresentation.ImageUrls(item["image"]).ToArray();
+                if (images.Length > 0)
                 {
                     var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-                    row.Children.Add(new Image { Source = new BitmapImage(image), Width = 44, Height = 44, Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill });
+                    var cover = new Image { Width = 44, Height = 44, Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill };
+                    row.Children.Add(cover);
+                    _ = LoadStillArtworkAsync(cover, images, Active);
                     row.Children.Add(new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center });
                     link.Content = row;
                 }
@@ -182,6 +187,12 @@ public sealed partial class MainWindow
             }
         });
         await Task.WhenAll(coverTask, portraitTask, historyTask, biographyTask, tagsTask, topTracksTask, topAlbumsTask, similarTask);
+    }
+
+    private async Task LoadStillArtworkAsync(Image image, IEnumerable<Uri> urls, Func<bool> active)
+    {
+        var bitmap = await ArtworkLoader.LoadAsync(urls, false, false, artworkHttp.GetByteArrayAsync, active);
+        if (active()) image.Source = bitmap;
     }
 
     private static HyperlinkButton MusicLink(string label, Uri destination) => new()
