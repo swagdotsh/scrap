@@ -1,4 +1,6 @@
 <div align="center">
+<img width="595" height="439" alt="image" src="https://github.com/user-attachments/assets/aabc56a1-eb69-4611-be68-f974a5db5960" />
+
 
 # scrap for Windows (beta)
 
