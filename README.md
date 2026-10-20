@@ -6,7 +6,7 @@
 
 # scrap
 
-An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.6 (Sonoma) and above or Windows 10 21H2 and above.
+An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and above.
 
 <br />
 
@@ -22,13 +22,16 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 </div>
 
 > [!TIP]
-> On iPhone? scrap for iPhone lives on the [`ios` branch](https://github.com/swagdotsh/scrap/tree/ios), with its own setup instructions.
+> This branch covers the macOS app. Looking for another device? Each has its own branch with setup instructions:
+>
+> - **iPhone**: [`ios`](https://github.com/swagdotsh/scrap/tree/ios)
+> - **Windows (beta)**: [`windows-app-sdk`](https://github.com/swagdotsh/scrap/tree/windows-app-sdk)
 
 ## Features
 
 ### Scrobbling
 
-- Scrobble songs playing in Apple Music or Spotify on macOS, and Apple Music on Windows, to last.fm
+- Scrobble songs playing in Apple Music or Spotify to last.fm
 - Update your last.fm now-playing status
 - Queue unsuccessful scrobbles for retry
 
@@ -49,33 +52,20 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 ### Desktop controls
 
-- Menu bar / taskbar access
-- Optional Dock icon (macOS)
-- Open on logon, with scrobbling initialized even when no window opens (macOS)
-- System, Light, or Dark appearance and adjustable menu bar background opacity in Settings → General (macOS)
+- Menu bar access
+- Optional Dock icon
+- Open on logon, with scrobbling initialized even when no window opens
+- System, Light, or Dark appearance and adjustable menu bar background opacity in Settings → General
 - In-app macOS updates with Sparkle: daily checks, verified downloads, installation and relaunch, plus optional automatic installation
 
-> [!NOTE]
-> Windows support is in beta and is mostly unsupported due to macOS being the main development platform. 
-
 ## Requirements
-
-### macOS
 
 - **macOS 14.6 (Sonoma) or above**
 - **Apple silicon or Intel Mac** (universal build means works for both, but mayyy not be supported forever!)
 - **Apple Music or Spotify** for playback
 - A **last.fm account**
 
-### Windows (beta)
-
-- **Windows 10 21H2 or above**
-- **Apple Music** for playback (works whether you're subscribed or not)
-- A **last.fm account**
-
 ## Setting Up
-
-### macOS
 
 1. Download `scrap-v1.6-universal.zip` from [Releases](https://github.com/swagdotsh/scrap/releases) (or get it from the [website](https://scrap.swagrelated.com/) that works too)
 2. Extract the ZIP and drag `Scrap.app` into your Applications folder
@@ -86,9 +76,9 @@ An open-source native scrobbler for macOS and Windows (beta). Requires macOS 14.
 
 That's it. Keep scrap running while you listen.
 
-To scrobble Spotify on Mac, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–Last.fm connection.
+To scrobble Spotify, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–Last.fm connection.
 
-To scrobble [untitled] on Mac, enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. Scrap uses the [untitled] project name as the Last.fm album name. [untitled] is off by default.
+To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. Scrap uses the [untitled] project name as the Last.fm album name. [untitled] is off by default.
 
 > [!IMPORTANT]
 > The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings -> Privacy & Security -> Open Anyway** after trying to open it.
@@ -97,15 +87,13 @@ To scrobble [untitled] on Mac, enable it in **Preferences → Services** and all
 
 ---
 
-## macOS updates
+## Updates
 
 Starting with 1.4, **Settings → Updates** can download and install updates inside Scrap. Daily checks are enabled by default; automatic download and installation can be enabled there too. Earlier versions need one final manual update to get this feature.
 
 Maintainers: see [Preparing and publishing updates](docs/updates.md) for the signed release and feed workflow.
 
 ## Building from Source
-
-### macOS
 
 You'll need **Xcode 27** and your own [last.fm API credentials](https://www.last.fm/api/account/create).
 
@@ -123,38 +111,8 @@ LASTFM_SHARED_SECRET=your_shared_secret
 
 The build copies the last.fm app configuration into the app bundle. People using your build connect their own last.fm accounts.
 
-### Windows (beta)
-
-You'll need a 64-bit Windows PC, the [.NET 10 SDK](https://learn.microsoft.com/en-us/dotnet/core/install/windows), Apple Music for Windows, and your own [last.fm API credentials](https://www.last.fm/api/account/create). The Windows App SDK version lives on the `windows-app-sdk` branch.
-
-In PowerShell, clone the repository and switch branches:
-
-```powershell
-git clone https://github.com/swagdotsh/scrap.git
-cd scrap
-git switch windows-app-sdk
-```
-
-If `dotnet --version` does not show version 10, install the SDK with `winget install Microsoft.DotNet.SDK.10`, then open a new PowerShell window in the `scrap` folder. Create a `.env` file in that folder with:
-
-```env
-LASTFM_API_KEY=your_api_key
-LASTFM_SHARED_SECRET=your_shared_secret
-```
-
-Build, test, and publish the app:
-
-```powershell
-dotnet build windows/Scrap/Scrap.csproj -p:Platform=x64
-dotnet run --project windows/Scrap.Tests/Scrap.Tests.csproj
-dotnet publish windows/Scrap/Scrap.csproj -c Release -p:Platform=x64 -o windows/publish
-.\windows\publish\Scrap.exe
-```
-
-In Scrap, choose **Connect Last.fm**, approve access in your browser, then return to the app and choose **I've approved it**. Play a track in Apple Music to check playback detection. Closing the window leaves Scrap running in the notification area. Keep the entire `windows/publish` folder together if you move the app; this is an unpackaged build with no installer.
-
 > [!CAUTION]
-> Keep `.env` gitignored. The macOS build includes its contents in the app bundle, and the Windows build copies it beside the executable. Don't put personal account credentials in it.
+> Keep `.env` gitignored. The build includes its contents in the app bundle, so don't put personal account credentials in it.
 
 ---
 
@@ -163,8 +121,8 @@ In Scrap, choose **Connect Last.fm**, approve access in your browser, then retur
 ### Nothing playing
 
 - Make sure you're playing something in an enabled app (Apple Music or Spotify)
-- Check **System Settings -> Privacy & Security -> Automation** (macOS)
-- Allow scrap to access Music (macOS)
+- Check **System Settings -> Privacy & Security -> Automation**
+- Allow scrap to access Music
 
 ### Connected, but songs aren't scrobbling
 
@@ -175,7 +133,7 @@ In Scrap, choose **Connect Last.fm**, approve access in your browser, then retur
 
 ### Closed the window, but scrap is still running
 
-That's normal. You can access it from the music-note icon in the menu bar (or on Windows, the scrap icon on the right of the taskbar)
+That's normal. You can access it from the music-note icon in the menu bar.
 
 To fully close it, choose **Quit scrap** from the menu.
 
@@ -185,9 +143,7 @@ If you're building from source, check that `.env` contains both required values,
 
 ## Support
 
-If you're having issues, open an [issue](https://github.com/swagdotsh/scrap/issues). Include your operating system, scrap version, and what happened.
-
-For Windows reports, mention that you're using the beta.
+If you're having issues, open an [issue](https://github.com/swagdotsh/scrap/issues). Include your macOS version, scrap version, and what happened. For the iPhone or Windows versions, see the support section on their branch.
 
 ## Contributing
 
