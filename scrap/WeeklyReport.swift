@@ -37,7 +37,7 @@ struct WeeklyReport {
     }
 }
 
-private struct Play {
+struct ScrobbledPlay {
     let title: String
     let artist: String
     let album: String
@@ -48,21 +48,21 @@ private struct Play {
 extension LastFMClient {
     func weeklyReport(for week: DateInterval) async throws -> WeeklyReport {
         let previous = DateInterval(start: Calendar.current.date(byAdding: .day, value: -7, to: week.start)!, end: week.start)
-        let plays = try await plays(from: week.start, to: .now)
+        let plays = try await scrobbledPlays(from: week.start, to: .now)
         let previousScrobbles = try await scrobbleCount(in: previous)
         let inWeek = plays.filter { week.contains($0.date) && $0.date < week.end }
 
-        func tally(_ plays: [Play], key: (Play) -> String) -> [String: (count: Int, play: Play)] {
-            var result: [String: (count: Int, play: Play)] = [:]
+        func tally(_ plays: [ScrobbledPlay], key: (ScrobbledPlay) -> String) -> [String: (count: Int, play: ScrobbledPlay)] {
+            var result: [String: (count: Int, play: ScrobbledPlay)] = [:]
             for play in plays {
                 let k = key(play)
                 result[k] = ((result[k]?.count ?? 0) + 1, result[k]?.play ?? play)
             }
             return result
         }
-        let artistKey: (Play) -> String = { $0.artist.lowercased() }
-        let albumKey: (Play) -> String = { $0.artist.lowercased() + "\n" + $0.album.lowercased() }
-        let trackKey: (Play) -> String = { $0.artist.lowercased() + "\n" + $0.title.lowercased() }
+        let artistKey: (ScrobbledPlay) -> String = { $0.artist.lowercased() }
+        let albumKey: (ScrobbledPlay) -> String = { $0.artist.lowercased() + "\n" + $0.album.lowercased() }
+        let trackKey: (ScrobbledPlay) -> String = { $0.artist.lowercased() + "\n" + $0.title.lowercased() }
 
         let weekArtists = tally(inWeek, key: artistKey)
         let weekAlbums = tally(inWeek.filter { !$0.album.isEmpty }, key: albumKey)
@@ -71,18 +71,18 @@ extension LastFMClient {
         let sinceAlbums = tally(plays.filter { !$0.album.isEmpty }, key: albumKey)
         let sinceTracks = tally(plays, key: trackKey)
 
-        func ranked(_ tally: [String: (count: Int, play: Play)]) -> [(key: String, count: Int, play: Play)] {
+        func ranked(_ tally: [String: (count: Int, play: ScrobbledPlay)]) -> [(key: String, count: Int, play: ScrobbledPlay)] {
             tally.map { ($0.key, $0.value.count, $0.value.play) }.sorted { $0.count > $1.count }
         }
-        func artistItem(_ entry: (key: String, count: Int, play: Play)) -> WeeklyReport.Item {
+        func artistItem(_ entry: (key: String, count: Int, play: ScrobbledPlay)) -> WeeklyReport.Item {
             .init(name: entry.play.artist, count: entry.count, url: PlayingTrack(title: "", artist: entry.play.artist, album: "", duration: nil).artistURL)
         }
-        func albumItem(_ entry: (key: String, count: Int, play: Play)) -> WeeklyReport.Item {
+        func albumItem(_ entry: (key: String, count: Int, play: ScrobbledPlay)) -> WeeklyReport.Item {
             let play = entry.play
             return .init(name: play.album, artist: play.artist, count: entry.count, imageURL: play.imageURL,
                          url: PlayingTrack(title: "", artist: play.artist, album: play.album, duration: nil).albumURL)
         }
-        func trackItem(_ entry: (key: String, count: Int, play: Play)) -> WeeklyReport.Item {
+        func trackItem(_ entry: (key: String, count: Int, play: ScrobbledPlay)) -> WeeklyReport.Item {
             let play = entry.play
             return .init(name: play.title, artist: play.artist, count: entry.count, imageURL: play.imageURL,
                          url: PlayingTrack(title: play.title, artist: play.artist, album: play.album, duration: nil).trackURL)
@@ -106,12 +106,12 @@ extension LastFMClient {
         return report
     }
 
-    private func newEntries(_ candidates: ArraySlice<(key: String, count: Int, play: Play)>,
-                            since: [String: (count: Int, play: Play)],
-                            params: (Play) -> [String: String],
-                            userCount: @escaping ([String: Any]) -> [String: Any]?) async -> [(key: String, count: Int, play: Play)] {
+    private func newEntries(_ candidates: ArraySlice<(key: String, count: Int, play: ScrobbledPlay)>,
+                            since: [String: (count: Int, play: ScrobbledPlay)],
+                            params: (ScrobbledPlay) -> [String: String],
+                            userCount: @escaping ([String: Any]) -> [String: Any]?) async -> [(key: String, count: Int, play: ScrobbledPlay)] {
         guard let username else { return [] }
-        var result: [(key: String, count: Int, play: Play)] = []
+        var result: [(key: String, count: Int, play: ScrobbledPlay)] = []
         for batch in stride(from: candidates.startIndex, to: candidates.endIndex, by: 5).map({ candidates[$0..<min($0 + 5, candidates.endIndex)] }) {
             guard !Task.isCancelled else { break }
             await withTaskGroup(of: (Int, Bool).self) { group in
@@ -133,18 +133,18 @@ extension LastFMClient {
         return result
     }
 
-    private func plays(from start: Date, to end: Date) async throws -> [Play] {
-        func page(_ number: Int) async throws -> (plays: [Play], totalPages: Int) {
+    func scrobbledPlays(from start: Date, to end: Date) async throws -> [ScrobbledPlay] {
+        func page(_ number: Int) async throws -> (plays: [ScrobbledPlay], totalPages: Int) {
             guard let username else { return ([], 0) }
             let json = try await request(["method": "user.getRecentTracks", "user": username, "limit": "200", "page": String(number),
                                           "from": String(Int(start.timeIntervalSince1970)), "to": String(Int(end.timeIntervalSince1970))])
             let root = json["recenttracks"] as? [String: Any]
             let rows = root?["track"] as? [[String: Any]] ?? (root?["track"] as? [String: Any]).map { [$0] } ?? []
             let totalPages = Self.count((root?["@attr"] as? [String: Any])?["totalPages"]) ?? 1
-            let plays = rows.compactMap { row -> Play? in
+            let plays = rows.compactMap { row -> ScrobbledPlay? in
                 guard let title = row["name"] as? String,
                       let uts = Self.count((row["date"] as? [String: Any])?["uts"]) else { return nil }
-                return Play(title: title, artist: (row["artist"] as? [String: Any])?["#text"] as? String ?? "",
+                return ScrobbledPlay(title: title, artist: (row["artist"] as? [String: Any])?["#text"] as? String ?? "",
                             album: (row["album"] as? [String: Any])?["#text"] as? String ?? "",
                             date: Date(timeIntervalSince1970: TimeInterval(uts)),
                             imageURL: ArtworkCandidates.urls(row["image"]).first)

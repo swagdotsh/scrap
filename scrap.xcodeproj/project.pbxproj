@@ -6,7 +6,18 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A7C0FFEE000000000000000D /* scrapWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A7C0FFEE0000000000000001 /* scrapWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		A7C0FFEE000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F68C1BCD3087B7330042FB67 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A7C0FFEE0000000000000006;
+			remoteInfo = scrapWidgets;
+		};
 		F68C1BE33087B7350042FB67 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F68C1BCD3087B7330042FB67 /* Project object */;
@@ -23,13 +34,31 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A7C0FFEE000000000000000C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				A7C0FFEE000000000000000D /* scrapWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		A7C0FFEE0000000000000001 /* scrapWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = scrapWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68C1BD53087B7330042FB67 /* scrap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = scrap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68C1BE23087B7350042FB67 /* scrapTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68C1BEC3087B7350042FB67 /* scrapUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scrapUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A7C0FFEE0000000000000002 /* scrapWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = scrapWidgets;
+			sourceTree = "<group>";
+		};
 		F68C1BD73087B7330042FB67 /* scrap */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = scrap;
@@ -48,6 +77,11 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A7C0FFEE0000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		F68C1BD23087B7330042FB67 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -72,6 +106,7 @@
 				F68C1BD73087B7330042FB67 /* scrap */,
 				F68C1BE53087B7350042FB67 /* scrapTests */,
 				F68C1BEF3087B7350042FB67 /* scrapUITests */,
+				A7C0FFEE0000000000000002 /* scrapWidgets */,
 				F68C1BD63087B7330042FB67 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -82,6 +117,7 @@
 				F68C1BD53087B7330042FB67 /* scrap.app */,
 				F68C1BE23087B7350042FB67 /* scrapTests.xctest */,
 				F68C1BEC3087B7350042FB67 /* scrapUITests.xctest */,
+				A7C0FFEE0000000000000001 /* scrapWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -89,6 +125,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A7C0FFEE0000000000000006 /* scrapWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7C0FFEE0000000000000007 /* Build configuration list for PBXNativeTarget "scrapWidgets" */;
+			buildPhases = (
+				A7C0FFEE0000000000000003 /* Sources */,
+				A7C0FFEE0000000000000004 /* Frameworks */,
+				A7C0FFEE0000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				A7C0FFEE0000000000000002 /* scrapWidgets */,
+			);
+			name = scrapWidgets;
+			productName = scrapWidgets;
+			productReference = A7C0FFEE0000000000000001 /* scrapWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F68C1BD43087B7330042FB67 /* scrap */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F68C1BF43087B7350042FB67 /* Build configuration list for PBXNativeTarget "scrap" */;
@@ -96,8 +150,12 @@
 				F68C1BD13087B7330042FB67 /* Sources */,
 				F68C1BD23087B7330042FB67 /* Frameworks */,
 				F68C1BD33087B7330042FB67 /* Resources */,
+				A7C0FFEE000000000000000C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				A7C0FFEE000000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				F68C1BD73087B7330042FB67 /* scrap */,
@@ -159,6 +217,9 @@
 				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
+					A7C0FFEE0000000000000006 = {
+						CreatedOnToolsVersion = 27.1;
+					};
 					F68C1BD43087B7330042FB67 = {
 						CreatedOnToolsVersion = 27.1;
 					};
@@ -189,11 +250,17 @@
 				F68C1BD43087B7330042FB67 /* scrap */,
 				F68C1BE13087B7350042FB67 /* scrapTests */,
 				F68C1BEB3087B7350042FB67 /* scrapUITests */,
+				A7C0FFEE0000000000000006 /* scrapWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A7C0FFEE0000000000000005 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		F68C1BD33087B7330042FB67 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -212,6 +279,11 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A7C0FFEE0000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		F68C1BD13087B7330042FB67 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -230,6 +302,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A7C0FFEE000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A7C0FFEE0000000000000006 /* scrapWidgets */;
+			targetProxy = A7C0FFEE000000000000000A /* PBXContainerItemProxy */;
+		};
 		F68C1BE43087B7350042FB67 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F68C1BD43087B7330042FB67 /* scrap */;
@@ -243,6 +320,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A7C0FFEE0000000000000008 /* Debug configuration for PBXNativeTarget "scrapWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/scrapWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 53QB8M458U;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = scrap;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A7C0FFEE0000000000000009 /* Release configuration for PBXNativeTarget "scrapWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/scrapWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 53QB8M458U;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = scrap;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F68C1BF23087B7350042FB67 /* Debug configuration for PBXProject "scrap" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -367,8 +500,9 @@
 		F68C1BF53087B7350042FB67 /* Debug configuration for PBXNativeTarget "scrap" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/scrap.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 53QB8M458U;
@@ -400,8 +534,9 @@
 		F68C1BF63087B7350042FB67 /* Release configuration for PBXNativeTarget "scrap" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/scrap.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 53QB8M458U;
@@ -517,6 +652,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A7C0FFEE0000000000000007 /* Build configuration list for PBXNativeTarget "scrapWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7C0FFEE0000000000000008 /* Debug configuration for PBXNativeTarget "scrapWidgets" */,
+				A7C0FFEE0000000000000009 /* Release configuration for PBXNativeTarget "scrapWidgets" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		F68C1BD03087B7330042FB67 /* Build configuration list for PBXProject "scrap" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

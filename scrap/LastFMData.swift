@@ -207,6 +207,12 @@ extension LastFMClient {
         }
     }
 
+    func albumCoverURL(artist: String, album: String) async -> URL? {
+        guard !album.isEmpty,
+              let json = try? await request(["method": "album.getInfo", "artist": artist, "album": album]) else { return nil }
+        return ArtworkCandidates.urls((json["album"] as? [String: Any])?["image"]).first
+    }
+
     func profile() async throws -> ListenerProfile? {
         guard let username else { return nil }
         let json = try await request(["method": "user.getInfo", "user": username])

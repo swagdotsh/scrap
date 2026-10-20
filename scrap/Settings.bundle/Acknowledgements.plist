@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PreferenceSpecifiers</key>
+	<array>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>TheAudioDB</string>
+			<key>FooterText</key>
+			<string>Artist images are provided by TheAudioDB (theaudiodb.com), a community-built database of music artwork and metadata.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>last.fm</string>
+			<key>FooterText</key>
+			<string>Scrobbles, listening statistics, artist information and album artwork come from the last.fm API (last.fm).</string>
+		</dict>
+	</array>
+</dict>
+</plist>

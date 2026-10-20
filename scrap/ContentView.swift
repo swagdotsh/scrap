@@ -23,21 +23,24 @@ struct ContentView: View {
 
 private struct MainTabs: View {
     @EnvironmentObject private var lastFM: LastFMClient
+    @EnvironmentObject private var notifier: Notifier
+    @AppStorage("selectedTab") private var selectedTab = "nowPlaying"
     @State private var profile: ListenerProfile?
     @State private var showingProfile = false
+    @State private var showingScan = false
 
     var body: some View {
-        TabView {
-            Tab("Now Playing", systemImage: "play.circle.fill") {
+        TabView(selection: $selectedTab) {
+            Tab("Now Playing", systemImage: "play.circle.fill", value: "nowPlaying") {
                 screen("Now Playing") { NowPlayingView() }
             }
-            Tab("Reports", systemImage: "chart.pie.fill") {
+            Tab("Reports", systemImage: "chart.pie.fill", value: "reports") {
                 screen("Reports") { ReportsView() }
             }
-            Tab("Scrobbles", systemImage: "clock.arrow.circlepath") {
+            Tab("Scrobbles", systemImage: "clock.arrow.circlepath", value: "scrobbles") {
                 screen("Scrobbles") { ScrobblesView() }
             }
-            Tab("Friends", systemImage: "person.2.fill") {
+            Tab("Friends", systemImage: "person.2.fill", value: "friends") {
                 screen("Friends") { FriendsView() }
             }
         }
@@ -45,8 +48,15 @@ private struct MainTabs: View {
         .sheet(isPresented: $showingProfile) {
             ProfileView(profile: profile)
         }
+        .sheet(isPresented: $showingScan) {
+            ScanView()
+        }
         .task(id: lastFM.username) {
             profile = try? await lastFM.profile()
+        }
+        .task {
+            await notifier.requestAuthorization()
+            await notifier.refresh()
         }
     }
 
@@ -55,6 +65,9 @@ private struct MainTabs: View {
             content()
                 .navigationTitle(title)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Scan…") { showingScan = true }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showingProfile = true } label: {
                             Avatar(url: profile?.avatarURL, size: 34)
@@ -122,7 +135,7 @@ struct RemoteArtwork: View {
     var size: CGFloat? = 44
 
     var body: some View {
-        AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: {
+        CoverImage(url: url) {
             Image(systemName: symbol).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity).background(.quaternary)
         }

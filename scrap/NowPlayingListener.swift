@@ -12,10 +12,12 @@ final class NowPlayingListener: ObservableObject {
 
     var onTrackChange: (() -> Void)?
     var onNowPlaying: ((PlayingTrack) -> Void)?
+    var onRefresh: ((PlayingTrack?, MPMediaEntityPersistentID?, TimeInterval, Bool) -> Void)?
 
     private let player = MPMusicPlayerController.systemMusicPlayer
     private var observers: [NSObjectProtocol] = []
     private var sentNowPlaying: PlayingTrack?
+    private var timer: Timer?
 
     func start() {
         guard observers.isEmpty else { refresh(); return }
@@ -26,6 +28,9 @@ final class NowPlayingListener: ObservableObject {
             observers.append(center.addObserver(forName: name, object: player, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refresh() }
             })
+        }
+        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
         }
         refresh()
     }
@@ -49,5 +54,6 @@ final class NowPlayingListener: ObservableObject {
             sentNowPlaying = newTrack
             onNowPlaying?(newTrack)
         }
+        onRefresh?(newTrack, item?.persistentID, player.currentPlaybackTime, isPlaying)
     }
 }

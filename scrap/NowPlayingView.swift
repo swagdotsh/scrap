@@ -6,6 +6,11 @@ struct NowPlayingView: View {
     @EnvironmentObject private var scrobbler: PlayCountScrobbler
     @EnvironmentObject private var nowPlaying: NowPlayingListener
     @State private var details: ListeningDetails?
+    @State private var animatedCover: UIImage?
+    @AppStorage("animatedAlbumCovers") private var animatedSetting = false
+    @ObservedObject private var conditions = DeviceConditions.shared
+
+    private var animatedCovers: Bool { animatedSetting && !conditions.limitsAnimation }
 
     var body: some View {
         List {
@@ -33,6 +38,13 @@ struct NowPlayingView: View {
             guard let track = nowPlaying.track else { return }
             let result = await lastFM.listeningDetails(for: track)
             if !Task.isCancelled { details = result }
+        }
+        .task(id: "\(nowPlaying.track?.artist ?? "")|\(nowPlaying.track?.album ?? "")|\(animatedCovers)") {
+            animatedCover = nil
+            guard animatedCovers, let track = nowPlaying.track,
+                  let url = await lastFM.albumCoverURL(artist: track.artist, album: track.album) else { return }
+            let image = await CoverLoader.load(url, animated: true)
+            if !Task.isCancelled, CoverLoader.isAnimated(image) { animatedCover = image }
         }
     }
 
@@ -70,7 +82,9 @@ struct NowPlayingView: View {
     private func trackCard(_ track: PlayingTrack) -> some View {
         HStack(spacing: 12) {
             Group {
-                if let image = nowPlaying.artwork {
+                if let animatedCover {
+                    AnimatedImageView(image: animatedCover)
+                } else if let image = nowPlaying.artwork {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
                     Image(systemName: "music.note").foregroundStyle(.secondary)
@@ -128,8 +142,6 @@ struct NowPlayingView: View {
             }
         } header: {
             Text("About \(name)")
-        } footer: {
-            Link("Artist images from TheAudioDB", destination: URL(string: "https://www.theaudiodb.com")!)
         }
 
         if !details.topAlbums.isEmpty {
