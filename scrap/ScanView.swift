@@ -90,7 +90,7 @@ struct ScanView: View {
                         } label: {
                             Text("Scrobble these?").frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.glassProminent)
+                        .prominentButtonStyle()
                         .controlSize(.large)
                         Text("Scrobbles older than 2 weeks will be rejected.")
                             .font(.footnote).foregroundStyle(.secondary)

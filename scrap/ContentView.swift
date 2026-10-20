@@ -44,7 +44,7 @@ private struct MainTabs: View {
                 screen("Friends") { FriendsView() }
             }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .minimizesTabBarOnScroll()
         .sheet(isPresented: $showingProfile) {
             ProfileView(profile: profile)
         }
@@ -74,7 +74,7 @@ private struct MainTabs: View {
                         }
                         .accessibilityLabel("Profile and settings")
                     }
-                    .sharedBackgroundVisibility(.hidden)
+                    .withoutSharedBackground()
                 }
         }
     }
@@ -98,7 +98,7 @@ private struct ConnectView: View {
             Button { Task { await connect() } } label: {
                 Text("Connect last.fm").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.glassProminent)
+            .prominentButtonStyle()
             .controlSize(.large)
             .disabled(!lastFM.isConfigured || lastFM.isBusy)
         }

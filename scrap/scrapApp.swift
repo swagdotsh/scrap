@@ -100,6 +100,10 @@ struct scrapApp: App {
         }
         let request = BGAppRefreshTaskRequest(identifier: refreshTaskID)
         request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-        BGTaskScheduler.shared.submitTaskRequest(request) { _ in }
+        if #available(iOS 27, *) {
+            BGTaskScheduler.shared.submitTaskRequest(request) { _ in }
+        } else {
+            try? BGTaskScheduler.shared.submit(request)
+        }
     }
 }

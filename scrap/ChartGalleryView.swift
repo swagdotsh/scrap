@@ -26,8 +26,7 @@ struct ChartGalleryView: View {
             if entries == nil, error == nil { ProgressView() }
         }
         .tint(.primary)
-        .navigationTitle(kind.title)
-        .navigationSubtitle(period.title)
+        .navigationTitle(kind.title, subtitle: period.title)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }
         .task { await load() }
@@ -43,7 +42,7 @@ struct ChartGalleryView: View {
                     Text("\(rank)")
                         .font(.caption.bold()).monospacedDigit()
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .glassEffect()
+                        .badgeBackground()
                         .padding(8)
                 }
             Text(entry.link.name).font(.subheadline.bold()).foregroundStyle(.primary).lineLimit(1)

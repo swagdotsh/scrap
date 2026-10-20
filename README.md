@@ -4,7 +4,7 @@
 
 # scrap for iPhone
 
-A native last.fm scrobbler for iPhone. Requires iOS 27 and above.
+A native last.fm scrobbler for iPhone. Requires iOS 18 and above, with Liquid Glass on iOS 26 and above.
 
 This is the `ios` branch. For the macOS app (and Windows beta), see [`main`](https://github.com/swagdotsh/scrap).
 
@@ -56,7 +56,7 @@ That means:
 
 ## Requirements
 
-- **An iPhone on iOS 27 or above**
+- **An iPhone on iOS 18 or above** (iPhone XS, XR and newer)
 - **A Mac with Xcode 27** (scrap for iPhone isn't on the App Store yet, so you build it yourself)
 - **Apple Music**, with the songs you want scrobbled in your library
 - A **last.fm account** and your own [last.fm API credentials](https://www.last.fm/api/account/create)

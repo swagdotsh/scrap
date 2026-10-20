@@ -73,7 +73,7 @@ struct NowPlayingView: View {
                         if scrobbler.authorization == .authorized { nowPlaying.start() }
                     }
                 }
-                .buttonStyle(.glassProminent)
+                .prominentButtonStyle()
                 .tint(.accentColor)
             }
         }
