@@ -149,6 +149,8 @@ If you're having issues, open an [issue](https://github.com/swagdotsh/scrap/issu
 
 Contributions are welcome: bug fixes, platform improvements, docs, etc.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, platform branches, testing, and pull request guidance.
+
 Suggested workflow:
 
 1. Fork the repo
