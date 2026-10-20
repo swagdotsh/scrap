@@ -1,0 +1,12 @@
+.env
+.env.*
+*.env
+*.env.*
+Releases/
+build/
+DerivedData/
+*.app/
+*.xcarchive/
+.DS_Store
+xcuserdata/
+*.xcuserstate
