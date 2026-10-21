@@ -1,0 +1,29 @@
+## Reports
+- Added a **Reports** page with your weekly report (Saturday to Friday): scrobbles compared with the previous week, your top artist, album and track, and the new artists, albums and tracks you discovered.
+
+## Notifications
+- Get notified every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready every Friday at 16:00 Central European Time. Clicking a notification opens the matching page.
+- Turn each one on or off in **Preferences → General → Notifications**.
+
+## Profile
+- Choose the period for your top artists, albums and tracks: last 7 days, 30 days, 365 days or all time.
+- **See more** opens a window with your top 50 for that chart and period.
+
+## Now Playing
+- Added animated album covers, with an option to prioritize fetching them.
+
+## Scrobbles
+- Shows what you're playing on another device, according to last.fm, and refreshes every 30 seconds while open.
+
+## Friends
+- Fixed friends always showing no recent listening. Each friend now shows their latest scrobble and whether they're listening right now.
+
+## Settings
+- Added **Remove “(feat.)” and “(with)” from song titles**.
+- Added **Include (Apple Music Edition)** to the album suffix cleanup.
+
+## Other
+- The session key is no longer sent in request URLs.
+- scrap remembers the page you were on.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.6...v1.7

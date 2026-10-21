@@ -3,6 +3,45 @@
     <channel>
         <title>scrap</title>
         <item>
+            <title>1.7</title>
+            <pubDate>Wed, 21 Oct 2026 22:01:02 +0200</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.7</link>
+            <sparkle:version>1.7</sparkle:version>
+            <sparkle:shortVersionString>1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[## Reports
+- Added a **Reports** page with your weekly report (Saturday to Friday): scrobbles compared with the previous week, your top artist, album and track, and the new artists, albums and tracks you discovered.
+
+## Notifications
+- Get notified every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready every Friday at 16:00 Central European Time. Clicking a notification opens the matching page.
+- Turn each one on or off in **Preferences → General → Notifications**.
+
+## Profile
+- Choose the period for your top artists, albums and tracks: last 7 days, 30 days, 365 days or all time.
+- **See more** opens a window with your top 50 for that chart and period.
+
+## Now Playing
+- Added animated album covers, with an option to prioritize fetching them.
+
+## Scrobbles
+- Shows what you're playing on another device, according to last.fm, and refreshes every 30 seconds while open.
+
+## Friends
+- Fixed friends always showing no recent listening. Each friend now shows their latest scrobble and whether they're listening right now.
+
+## Settings
+- Added **Remove “(feat.)” and “(with)” from song titles**.
+- Added **Include (Apple Music Edition)** to the album suffix cleanup.
+
+## Other
+- The session key is no longer sent in request URLs.
+- scrap remembers the page you were on.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.6...v1.7
+]]></description>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.7/scrap-v1.7-universal.zip" length="4030819" type="application/octet-stream" sparkle:edSignature="3xF1RnU8M9y0+/inPHSBiio3x9GFXeJnvtJmGgx7twqLEjlF6RWe9mLsmGHtQvkn9sRXitF9upT/zHj/WNVgBA=="/>
+        </item>
+        <item>
             <title>1.6</title>
             <pubDate>Wed, 14 Oct 2026 14:01:12 +0200</pubDate>
             <link>https://github.com/swagdotsh/scrap/releases/tag/v1.6</link>
@@ -44,15 +83,6 @@ Menu bar
 - “Share track” now opens the native macOS sharing picker with the track’s last.fm link.
 ]]></description>
             <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.5/scrap-v1.5-universal.zip" length="3525433" type="application/octet-stream" sparkle:edSignature="wGSlR8LLHJ5gBWn6w1J5jGMJTQBLAvh7gP8KsI1pjgFWAA2O/GFioPjQC204/iVRAndlYmszUf1GUDv2OrXSBg=="/>
-        </item>
-        <item>
-            <title>1.4</title>
-            <pubDate>Thu, 24 Sep 2026 10:59:27 +0200</pubDate>
-            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.4</link>
-            <sparkle:version>1.4</sparkle:version>
-            <sparkle:shortVersionString>1.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.4/scrap-v1.4-universal.zip" length="3492290" type="application/octet-stream" sparkle:edSignature="mV/k3RJolyskNS8mf2QRVRnt0ngW+5L14PA6va4hCI1v4NpF8Uvy6p5NHDfJ9d/ki2ZiDdodHF1y9Nat6KoyCQ=="/>
         </item>
     </channel>
 </rss>
