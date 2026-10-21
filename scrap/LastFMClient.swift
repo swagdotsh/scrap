@@ -36,6 +36,7 @@ final class LastFMClient: ObservableObject {
     }
 
     @Published var scrobblingPaused = false
+    var onScrobbled: ((PlayingTrack) -> Void)?
     @Published private(set) var isBusy = false
     @Published private(set) var status = "Connect your last.fm account to start scrobbling."
     @Published private(set) var pendingCount = 0
@@ -242,6 +243,7 @@ final class LastFMClient: ObservableObject {
                 }
                 let accepted = String(describing: attributes["accepted"] ?? "0") == "1"
                 status = accepted ? "Scrobbled \(item.track.title)." : "Last.fm ignored \(item.track.title)."
+                if accepted { onScrobbled?(item.track) }
                 queue.remove(at: index)
                 persistQueue()
             } catch {

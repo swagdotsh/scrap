@@ -1,11 +1,12 @@
 import SwiftUI
 
 private enum Page: String, CaseIterable, Identifiable {
-    case nowPlaying = "Now Playing", scrobbles = "Scrobbles", profile = "Profile", friends = "Friends"
+    case nowPlaying = "Now Playing", reports = "Reports", scrobbles = "Scrobbles", profile = "Profile", friends = "Friends"
     var id: String { rawValue }
     var symbol: String {
         switch self {
         case .nowPlaying: "play.circle"
+        case .reports: "chart.pie"
         case .scrobbles: "clock.arrow.circlepath"
         case .profile: "person.crop.circle"
         case .friends: "person.2"
@@ -27,7 +28,10 @@ struct ContentView: View {
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var selection: Page = .nowPlaying
+    @AppStorage("selectedPage") private var selection: Page = .nowPlaying
+    @State private var report: WeeklyReport?
+    @State private var reportWeek = WeeklyReport.latestWeek()
+    @State private var reportKey = ""
     @State private var details: ListeningDetails?
     @State private var recent: [RecentScrobble] = []
     @State private var profile: ListenerProfile?
@@ -79,6 +83,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         switch selection {
                         case .nowPlaying: nowPlaying
+                        case .reports: reportsPage
                         case .scrobbles: scrobbles
                         case .profile: profilePage
                         case .friends: friendsPage
@@ -126,6 +131,25 @@ struct ContentView: View {
             }
             guard selection != .nowPlaying else { return }
             if selection == .friends { await client.refreshFriends(); return }
+            if selection == .reports {
+                reportWeek = WeeklyReport.latestWeek()
+                let key = "\(client.username ?? "")-\(refreshID)"
+                if report?.week != reportWeek || reportKey != key { report = nil }
+                guard report == nil else { return }
+                isLoading = true
+                pageError = nil
+                do {
+                    let result = try await client.weeklyReport(for: reportWeek)
+                    guard !Task.isCancelled else { return }
+                    report = result
+                    reportKey = key
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    pageError = "Couldn’t build your report. \(error.localizedDescription)"
+                }
+                isLoading = false
+                return
+            }
             isLoading = true
             pageError = nil
             do {
@@ -490,6 +514,74 @@ struct ContentView: View {
                     .font(.caption).italic().foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var reportsPage: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            pageHeader("Reports")
+            VStack(alignment: .leading, spacing: 3) {
+                Text(reportWeekTitle).font(.headline)
+                Text("Next report \(WeeklyReport.nextReportDate(after: reportWeek).formatted(.dateTime.weekday(.wide).month().day()))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if isLoading { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Building your report…").font(.caption).foregroundStyle(.secondary) } }
+            if let pageError { Text(pageError).foregroundStyle(.red) }
+            if let report {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(report.scrobbles.formatted()).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
+                    Text("scrobbles").foregroundStyle(.secondary)
+                    Spacer()
+                    if report.previousScrobbles > 0 {
+                        let change = Double(report.scrobbles - report.previousScrobbles) / Double(report.previousScrobbles)
+                        Label(change.formatted(.percent.precision(.fractionLength(0))), systemImage: change >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            .font(.headline).foregroundStyle(change >= 0 ? .green : .red)
+                    }
+                }
+                Text("Previous week: \(report.previousScrobbles.formatted())").font(.caption).foregroundStyle(.secondary)
+                Text("Top of the week").font(.subheadline.bold()).padding(.top, 4)
+                if let artist = report.topArtist { reportRow(artist, subtitle: "Top artist", artist: true) }
+                if let album = report.topAlbum { reportRow(album, subtitle: "Top album · \(album.artist)", symbol: "opticaldisc") }
+                if let track = report.topTrack { reportRow(track, subtitle: "Top track · \(track.artist)", symbol: "music.note") }
+                if report.topArtist == nil { Text("No scrobbles this week.").font(.caption).foregroundStyle(.secondary) }
+                discoverySection("New artists", items: report.newArtists, artists: true)
+                discoverySection("New albums", items: report.newAlbums, symbol: "opticaldisc")
+                discoverySection("New tracks", items: report.newTracks, symbol: "music.note")
+                Text("Checks your \(WeeklyReport.discoveryCheckLimit) most-played artists, albums and tracks of the week.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var reportWeekTitle: String {
+        let last = Calendar.current.date(byAdding: .day, value: -1, to: reportWeek.end)!
+        return "\(reportWeek.start.formatted(.dateTime.month().day())) – \(last.formatted(.dateTime.month().day()))"
+    }
+
+    private func discoverySection(_ title: String, items: [WeeklyReport.Item], artists: Bool = false, symbol: String = "music.note") -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(items.isEmpty ? title : "\(title) (\(items.count))").font(.subheadline.bold()).padding(.top, 4)
+            if items.isEmpty { Text("Nothing new this week.").font(.caption).foregroundStyle(.secondary) }
+            ForEach(items) { item in
+                reportRow(item, subtitle: artists ? nil : item.artist, artist: artists, symbol: symbol)
+            }
+        }
+    }
+
+    private func reportRow(_ item: WeeklyReport.Item, subtitle: String?, artist: Bool = false, symbol: String = "music.note") -> some View {
+        Link(destination: item.url) {
+            HStack(spacing: 10) {
+                if artist { ArtistPortrait(name: item.name, size: 36) }
+                else { profileImage(item.imageURL, size: 36, symbol: symbol) }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(item.name).font(.callout).lineLimit(2)
+                    if let subtitle, !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+                }
+                Spacer()
+                Text("\(item.count.formatted()) play\(item.count == 1 ? "" : "s")").font(.callout).monospacedDigit().foregroundStyle(.secondary)
+            }.contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Open \(item.name) on Last.fm")
     }
 
     private var profilePage: some View {

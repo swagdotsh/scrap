@@ -8,7 +8,9 @@ final class AppModel: ObservableObject {
     let client = LastFMClient()
     let updateChecker = UpdateChecker()
     lazy var desktop = DesktopControls(model: self)
+    lazy var notifier = Notifier(lastFM: client)
     private var friendsTimer: Timer?
+    private var notifierTimer: Timer?
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
@@ -27,8 +29,20 @@ final class AppModel: ObservableObject {
                 await self?.client.checkConnection()
             }
         }.store(in: &subscriptions)
+        client.onScrobbled = { [weak self] in self?.notifier.didScrobble($0) }
+        notifier.onOpenPage = { [weak self] page in
+            UserDefaults.standard.set(page, forKey: "selectedPage")
+            self?.desktop.showMainWindow()
+        }
         listener.start()
         Task { await client.checkConnection(); await client.retryPending(); await client.refreshFriends() }
+        Task { [notifier] in
+            await Notifier.requestAuthorization()
+            await notifier.refresh()
+        }
+        notifierTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.notifier.refresh() }
+        }
         friendsTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in await self?.client.checkConnection(); await self?.client.refreshFriends() }
         }

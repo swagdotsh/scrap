@@ -131,7 +131,7 @@ extension LastFMClient {
         return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "", playCount: String(Self.count(info["playcount"]) ?? 0), url: (info["url"] as? String).flatMap(URL.init(string:)), avatarURL: Self.cover(info["image"]))
     }
 
-    private static func count(_ value: Any?) -> Int? {
+    nonisolated static func count(_ value: Any?) -> Int? {
         if let value = value as? String { return Int(value) }
         return value as? Int
     }
