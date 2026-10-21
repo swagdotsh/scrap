@@ -24,6 +24,10 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherTimer updateTimer = new() { Interval = TimeSpan.FromHours(1) };
     private bool checkingForUpdate;
     private readonly DispatcherTimer friendsTimer = new() { Interval = TimeSpan.FromHours(1) };
+    private readonly DispatcherTimer recentTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer notifierTimer = new() { Interval = TimeSpan.FromHours(1) };
+    private readonly DispatcherTimer reportTimer = new() { Interval = TimeSpan.FromMinutes(1) };
+    private Notifier? notifier;
     private string page = "playing";
     private bool ready, ticking, actionBusy, closed, quitting;
     private TrayIcon? tray;
@@ -38,7 +42,7 @@ public sealed partial class MainWindow : Window
     private MetadataCleanup cleanup = MetadataCleanup.Defaults;
     private readonly bool backgroundLaunch = Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--background", StringComparison.OrdinalIgnoreCase));
 
-    public MainWindow()
+    public MainWindow(string? initialPage = null)
     {
         InitializeComponent();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scrap.ico"));
@@ -49,13 +53,22 @@ public sealed partial class MainWindow : Window
             presenter.IsMaximizable = false;
         }
         SystemBackdrop = new MicaBackdrop();
-        InstalledVersion.Text = "Scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.2.0");
+        InstalledVersion.Text = "scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.7.0");
         engine.Scrobble += client.Enqueue;
         engine.NowPlaying += track => _ = RunAsync(() => client.NowPlayingAsync(track));
         client.AccountChanged += () => { engine.Reset(); revision++; if (ready) DispatcherQueue.TryEnqueue(() => { ClearDetails(); if (page == "playing") _ = RunAsync(LoadPageAsync); }); };
         try
         {
             client.Initialize();
+            notifier = new Notifier(client);
+            notifier.OpenPage += target => DispatcherQueue.TryEnqueue(() => { RestoreFromTray(); SelectPage(target); });
+            client.Scrobbled += track => notifier.DidScrobble(track);
+            MilestonesCheck.IsChecked = notifier.Milestones;
+            NewArtistsCheck.IsChecked = notifier.NewArtists;
+            WeeklyReportCheck.IsChecked = notifier.WeeklyReports;
+            MilestonesNote.Text = $"Every {Notifier.MilestoneStep:N0} scrobbles.";
+            WeeklyReportNote.Text = ReportSchedule.Description(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
+            chartPeriod = ChartPeriod.From(LocalStore.Load<string?>("profile-chart-period.json", null));
             cleanup = LocalStore.Load("metadata-cleanup.json", MetadataCleanup.Defaults);
             listener.Cleanup = cleanup;
             ScrobblingSwitch.IsOn = LocalStore.Load("scrobbling-enabled.json", true);
@@ -65,6 +78,7 @@ public sealed partial class MainWindow : Window
             AlbumSuffixCheck.IsChecked = cleanup.RemoveAlbumSuffixes;
             AppleMusicEditionCheck.IsChecked = cleanup.RemoveAppleMusicEdition;
             AppleMusicEditionCheck.Visibility = cleanup.RemoveAlbumSuffixes ? Visibility.Visible : Visibility.Collapsed;
+            FeaturedArtistsCheck.IsChecked = cleanup.RemoveFeaturedArtists;
             animatedCovers = LocalStore.Load("animated-album-covers.json", true);
             preferAnimatedCovers = LocalStore.Load("prefer-animated-covers.json", false);
             AnimatedCoversCheck.IsChecked = animatedCovers;
@@ -111,11 +125,32 @@ public sealed partial class MainWindow : Window
         timer.Start();
         friendsTimer.Tick += async (_, _) => { if (page == "friends" && !closed) await RunAsync(LoadPageAsync); };
         friendsTimer.Start();
+        recentTimer.Tick += async (_, _) => { if (page == "recent" && !closed && !loadingRecent) { loadingRecent = true; try { await RunAsync(LoadPageAsync); } finally { loadingRecent = false; } } };
+        recentTimer.Start();
+        notifierTimer.Tick += async (_, _) => { if (notifier != null && !closed) await notifier.RefreshAsync(); };
+        notifierTimer.Start();
+        reportTimer.Tick += (_, _) => { if (closed) return; try { notifier?.CheckWeeklyReport(); WeeklyReportNote.Text = ReportSchedule.Description(DateTimeOffset.UtcNow, TimeZoneInfo.Local); } catch (Exception ex) { ShowError(ex); } };
+        reportTimer.Start();
         updateTimer.Tick += async (_, _) => { if (DailyUpdateCheck.IsChecked == true) await CheckDailyUpdateAsync(); };
         updateTimer.Start();
-        Closed += (_, _) => { closed = true; timer.Stop(); friendsTimer.Stop(); updateTimer.Stop(); engine.Suspend(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose(); };
+        Closed += (_, _) =>
+        {
+            closed = true; timer.Stop(); friendsTimer.Stop(); recentTimer.Stop(); notifierTimer.Stop(); reportTimer.Stop(); updateTimer.Stop(); engine.Suspend();
+            foreach (var gallery in galleries.Values) if (!gallery.IsClosed) gallery.Close();
+            notifier?.Dispose(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose();
+        };
         UpdateStatus();
         if (DailyUpdateCheck.IsChecked == true) _ = CheckDailyUpdateAsync();
+        if (notifier != null) _ = notifier.RefreshAsync();
+        try { SelectPage(initialPage ?? LocalStore.Load("selected-page.json", "playing")); } catch (Exception e) { ShowError(e); }
+    }
+
+    private bool loadingRecent;
+
+    private void SelectPage(string tag)
+    {
+        if (Navigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag?.ToString() == tag) is { } item)
+            Navigation.SelectedItem = item;
     }
 
     private void RestoreFromTray()
@@ -137,10 +172,11 @@ public sealed partial class MainWindow : Window
             current = sample.Track;
             deviceIsPlaying = sample.Playing;
             engine.Update(client.Connected ? current : null, sample.Playing && !client.Paused && client.Connected, DateTimeOffset.UtcNow, sample.Restarted);
-            TrackTitle.Text = current?.Title ?? "Nothing playing";
+            TrackTitle.Text = current == null ? "Nothing playing" : current.OriginalTitle ?? current.Title;
             ArtistName.Text = current == null ? "Play something in Apple Music." : ScrobbleLabel(current.OriginalArtist, current.Artist);
             AlbumName.Text = current == null ? "" : ScrobbleLabel(current.OriginalAlbum, current.Album);
             AlbumSeparator.Text = string.IsNullOrEmpty(current?.Album) ? "" : " - ";
+            TitleNote.Text = current?.OriginalTitle is { } originalTitle && originalTitle != current.Title ? "\nScrobbling the title as " + current.Title : "";
             if (changed)
             {
                 SongLink.NavigateUri = current == null ? null : MusicPresentation.TrackUrl(current.Artist, current.Title);
@@ -150,7 +186,7 @@ public sealed partial class MainWindow : Window
                 if (current is { } lovedTrack && client.Connected) _ = RefreshLovedStateAsync(lovedTrack);
             }
             Progress.Value = current?.Duration is > 30 ? Math.Min(1, engine.PlayedSeconds / Math.Min(240, current.Duration.Value / 2)) : 0;
-            PlaybackStatus.Text = current == null ? "Waiting for a media session…" : !client.Connected ? "Connect Last.fm below to scrobble." : client.Paused ? "Scrobbling paused" : !sample.Playing ? "Playback paused" : current.Duration == null ? "Duration unavailable — this track cannot be scrobbled yet." : current.Duration <= 30 ? "Tracks of 30 seconds or less are not scrobbled." : engine.Submitted ? "Scrobble queued or submitted" : $"{engine.PlayedSeconds:0} seconds listened";
+            PlaybackStatus.Text = current == null ? "Waiting for a media session…" : !client.Connected ? "Connect last.fm below to scrobble." : client.Paused ? "Scrobbling paused" : !sample.Playing ? "Playback paused" : current.Duration == null ? "Duration unavailable — this track cannot be scrobbled yet." : current.Duration <= 30 ? "Tracks of 30 seconds or less are not scrobbled." : engine.Submitted ? "Scrobble queued or submitted" : $"{engine.PlayedSeconds:0} seconds listened";
             if (changed) { ClearDetails(); if (page == "playing") { revision++; _ = RunAsync(LoadPageAsync); } }
             if (DateTimeOffset.UtcNow - lastRetry > TimeSpan.FromSeconds(60) && !actionBusy)
             {
@@ -182,7 +218,7 @@ public sealed partial class MainWindow : Window
         AccountStatus.Text = MainAccountStatus.Text = status;
         if (!client.Connected)
         {
-            AccountInfo.Text = "Not connected to Last.fm";
+            AccountInfo.Text = "Not connected to last.fm";
             AccountAvatar.Source = null;
             AccountProfileLink.Visibility = Visibility.Collapsed;
             accountInfoOwner = null;
@@ -204,7 +240,7 @@ public sealed partial class MainWindow : Window
     private async void SettingsTabChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!ready || SettingsTabs.SelectedItem is not TabViewItem { Header: "last.fm Accounts" }) return;
-        if (!client.Connected || client.Username == null) { AccountInfo.Text = "Not connected to Last.fm"; return; }
+        if (!client.Connected || client.Username == null) { AccountInfo.Text = "Not connected to last.fm"; return; }
         try
         {
             var info = await client.RequestAsync(new() { ["method"] = "user.getInfo", ["user"] = client.Username });
@@ -215,7 +251,7 @@ public sealed partial class MainWindow : Window
             AccountInfo.Text = $"{(name.Length > 0 ? name + " · " : "")}{plays} scrobbles";
             if (Uri.TryCreate(LastFmClient.Text(user?["url"]), UriKind.Absolute, out var profileUrl) && profileUrl.Scheme == "https" && (profileUrl.Host == "last.fm" || profileUrl.Host.EndsWith(".last.fm", StringComparison.OrdinalIgnoreCase)))
             {
-                AccountProfileLink.Content = "@" + username + " on Last.fm";
+                AccountProfileLink.Content = "@" + username + " on last.fm";
                 AccountProfileLink.NavigateUri = profileUrl;
                 AccountProfileLink.Visibility = Visibility.Visible;
             }
@@ -231,104 +267,22 @@ public sealed partial class MainWindow : Window
     {
         if (!ready) return;
         page = args.IsSettingsSelected ? "settings" : (args.SelectedItem as NavigationViewItem)?.Tag?.ToString() ?? "playing";
-        Heading.Text = page switch { "recent" => "Scrobbles", "profile" => "Profile", "friends" => "Friends", "settings" => "Settings", _ => "Now Playing" };
+        if (page != "settings") try { LocalStore.Save("selected-page.json", page); } catch (Exception e) { ShowError(e); }
+        recentSignature = "";
+        Heading.Text = page switch { "reports" => "Reports", "recent" => "Scrobbles", "profile" => "Profile", "friends" => "Friends", "settings" => "Settings", _ => "Now Playing" };
         PlayingPanel.Visibility = page == "playing" ? Visibility.Visible : Visibility.Collapsed;
         SettingsPanel.Visibility = page == "settings" ? Visibility.Visible : Visibility.Collapsed;
-        ResultsPanel.Visibility = page is "recent" or "profile" or "friends" ? Visibility.Visible : Visibility.Collapsed;
+        ResultsPanel.Visibility = page is "reports" or "recent" or "profile" or "friends" ? Visibility.Visible : Visibility.Collapsed;
         RefreshButton.Visibility = page == "settings" ? Visibility.Collapsed : Visibility.Visible;
         await RunAsync(LoadPageAsync);
     }
 
-    private async Task LoadPageAsync()
+    private async void Refresh(object sender, RoutedEventArgs e)
     {
-        var version = ++revision;
-        var selected = page;
-        ResultsPanel.Children.Clear();
-        if (selected == "playing") { await LoadDetailsAsync(version); return; }
-        if (!client.Connected) { AddRow("Connect Last.fm", "Sign in below to see your activity."); return; }
-        var user = client.Username!;
-        var args = new Dictionary<string, string> { ["user"] = user, ["limit"] = "50" };
-        if (selected == "settings") return;
-        args["method"] = selected switch { "recent" => "user.getRecentTracks", "friends" => "user.getFriends", _ => "user.getInfo" };
-        if (selected == "friends") args["recenttracks"] = "1";
-        if (selected == "friends") args["page"] = "1";
-        var json = await client.RequestAsync(args);
-        if (version != revision || closed) return;
-        if (selected == "recent")
-        {
-            foreach (var row in LastFmClient.Rows(json["recenttracks"]?["track"]))
-            {
-                var title = LastFmClient.Text(row["name"]);
-                var artist = LastFmClient.Text(row["artist"]?["#text"]);
-                var nowPlaying = LastFmClient.Text(row["@attr"]?["nowplaying"]) == "true";
-                var localMatch = nowPlaying && deviceIsPlaying && current != null &&
-                    string.Equals(current.Title, title, StringComparison.OrdinalIgnoreCase) &&
-                    (string.Equals(current.Artist, artist, StringComparison.OrdinalIgnoreCase) || string.Equals(current.OriginalArtist, artist, StringComparison.OrdinalIgnoreCase));
-                var activity = localMatch ? "Now playing" : nowPlaying ? "Playing on another device" : LastFmClient.Text(row["date"]?["#text"]);
-                AddRow(title, $"{artist} · {LastFmClient.Text(row["album"]?["#text"])}\n{activity}", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.TrackUrl(artist, title), localMatch);
-            }
-        }
-        else if (selected == "friends")
-        {
-            var friends = new List<JsonNode>();
-            var page = 1;
-            var totalPages = Math.Max(1, MusicPresentation.Count(json["friends"]?["@attr"]?["totalPages"]) ?? 1);
-            friends.AddRange(LastFmClient.Rows(json["friends"]?["user"]));
-            while (page < totalPages && version == revision && !closed)
-            {
-                page++;
-                var next = await client.RequestAsync(new() { ["method"] = "user.getFriends", ["user"] = user, ["recenttracks"] = "1", ["limit"] = "50", ["page"] = page.ToString() });
-                if (version != revision || closed) return;
-                friends.AddRange(LastFmClient.Rows(next["friends"]?["user"]));
-            }
-            var seenFriends = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var row in friends)
-            {
-                var name = LastFmClient.Text(row["name"]);
-                if (name.Length == 0 || !seenFriends.Add(name)) continue;
-                var recent = LastFmClient.Rows(row["recenttrack"] ?? row["recenttracks"]?["track"]).FirstOrDefault();
-                AddRow(name, recent == null ? "No recent listening available" : $"{LastFmClient.Text(recent["name"])} · {LastFmClient.Text(recent["artist"]?["#text"])}", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.UserUrl(name));
-            }
-        }
-        else
-        {
-            AddRow(LastFmClient.Text(json["user"]?["name"]), $"{LastFmClient.Text(json["user"]?["playcount"])} scrobbles · {LastFmClient.Text(json["user"]?["artist_count"])} artists", MusicPresentation.ImageUrls(json["user"]?["image"]), MusicPresentation.UserUrl(user));
-            foreach (var kind in new[] { "artists", "albums", "tracks" })
-            {
-                var chart = await client.RequestAsync(new() { ["method"] = "user.getTop" + char.ToUpperInvariant(kind[0]) + kind[1..], ["user"] = user, ["period"] = "overall", ["limit"] = "5" });
-                if (version != revision || closed) return;
-                AddRow("Top " + kind + " · All time", "");
-                foreach (var row in LastFmClient.Rows(chart["top" + kind]?[kind[..^1]]))
-                    AddRow(LastFmClient.Text(row["name"]), $"{LastFmClient.Text(row["playcount"])} plays", MusicPresentation.ImageUrls(row["image"]), MusicPresentation.ChartUrl(kind, row));
-            }
-        }
-        if (ResultsPanel.Children.Count == 0) AddRow("Nothing here yet", "Your Last.fm activity will appear here.");
+        if (page == "reports") reports.Clear();
+        recentSignature = "";
+        await RunAsync(LoadPageAsync);
     }
-
-    private void AddRow(string title, string detail, IEnumerable<Uri>? images = null, Uri? destination = null, bool highlighted = false)
-    {
-        var stack = new StackPanel { Spacing = 4 };
-        stack.Children.Add(new TextBlock { Text = title, FontSize = 17, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
-        if (detail.Length > 0) stack.Children.Add(new TextBlock { Text = detail, Opacity = .9, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)Application.Current.Resources[highlighted ? "AccentTextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"], FontWeight = highlighted ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal });
-        var row = new Grid { ColumnSpacing = 12 };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var candidates = images?.ToArray() ?? [];
-        if (candidates.Length > 0)
-        {
-            var cover = new Image { Width = 56, Height = 56, Stretch = Stretch.UniformToFill };
-            row.Children.Add(cover);
-            var viewRevision = revision;
-            var viewPage = page;
-            _ = LoadStillArtworkAsync(cover, candidates, () => !closed && revision == viewRevision && page == viewPage);
-        }
-        Grid.SetColumn(stack, 1); row.Children.Add(stack);
-        FrameworkElement content = row;
-        if (destination != null)
-            content = new HyperlinkButton { Content = row, NavigateUri = destination, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"], Padding = new Thickness(0) };
-        ResultsPanel.Children.Add(new Border { Child = content, Padding = new Thickness(16), CornerRadius = new CornerRadius(10), Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"], BorderBrush = highlighted ? (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"] : (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"], BorderThickness = new Thickness(highlighted ? 2 : 1) });
-    }
-    private async void Refresh(object sender, RoutedEventArgs e) => await RunAsync(LoadPageAsync);
     private async void Connect(object sender, RoutedEventArgs e) => await UserActionAsync(async () => { var uri = await client.BeginAuthAsync(); if (!await Launcher.LaunchUriAsync(uri)) throw new InvalidOperationException("Could not open the browser."); });
     private async void Approve(object sender, RoutedEventArgs e) => await UserActionAsync(async () => { await client.CompleteAuthAsync(); await client.RetryAsync(); });
     private async void SignOut(object sender, RoutedEventArgs e) => await UserActionAsync(() => { client.SignOut(); TrackDetails.Text = ""; ResultsPanel.Children.Clear(); return Task.CompletedTask; });
@@ -347,7 +301,7 @@ public sealed partial class MainWindow : Window
 
     private async Task EditTagsAsync(string kind, PlayingTrack track, string artist)
     {
-        if (!client.Connected) { ShowError(new InvalidOperationException("Connect Last.fm to manage tags.")); return; }
+        if (!client.Connected) { ShowError(new InvalidOperationException("Connect last.fm to manage tags.")); return; }
         await UserActionAsync(async () =>
         {
             var own = kind == "track" ? await client.TrackTagsAsync(track) : await client.ArtistTagsAsync(artist);
@@ -384,7 +338,7 @@ public sealed partial class MainWindow : Window
         if (!ready) return;
         cleanup = new MetadataCleanup(FirstArtistCheck.IsChecked == true, AlbumSuffixCheck.IsChecked == true,
             PreservedArtistsBox.Text.Split(Environment.NewLine, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries),
-            AppleMusicEditionCheck.IsChecked == true);
+            AppleMusicEditionCheck.IsChecked == true, FeaturedArtistsCheck.IsChecked == true);
         AppleMusicEditionCheck.Visibility = cleanup.RemoveAlbumSuffixes ? Visibility.Visible : Visibility.Collapsed;
         PreserveArtistsPanel.Visibility = cleanup.FirstArtistOnly ? Visibility.Visible : Visibility.Collapsed;
         listener.Cleanup = cleanup;
@@ -393,6 +347,14 @@ public sealed partial class MainWindow : Window
         RefreshCleanupPreview();
         engine.Reset();
         current = null;
+    }
+    private void NotificationPreferencesChanged(object sender, RoutedEventArgs e)
+    {
+        if (!ready || notifier == null) return;
+        notifier.Milestones = MilestonesCheck.IsChecked == true;
+        notifier.NewArtists = NewArtistsCheck.IsChecked == true;
+        notifier.WeeklyReports = WeeklyReportCheck.IsChecked == true;
+        try { notifier.SavePreferences(); } catch (Exception ex) { ShowError(ex); }
     }
     private async void ArtworkPreferencesChanged(object sender, RoutedEventArgs e)
     {
@@ -415,6 +377,8 @@ public sealed partial class MainWindow : Window
         CleanupPreview.Text = "Artist example:\nHours In Silence\nDrake & 21 Savage (scrobbling as Drake) - Her Loss\n\nAlbum example:\nbfo2\nSummrs - What We Have - EP (scrobbling as What we have)";
         CleanupPreview.Text += "\n\nApple Music Edition example:\nSoFaygo - " +
             ScrobbleLabel("Pink Heartz (Apple Music Edition)", MetadataCleanup.PreviewAlbum("Pink Heartz (Apple Music Edition)", cleanup));
+        CleanupPreview.Text += "\n\nFeatured artists example:\n" +
+            ScrobbleLabel("Wants and Needs (feat. Lil Baby)", MetadataCleanup.PreviewTitle("Wants and Needs (feat. Lil Baby)", cleanup)) + "\nDrake - Scary Hours 2";
     }
     private static string ScrobbleLabel(string? original, string cleaned) =>
         !string.IsNullOrWhiteSpace(original) && !string.Equals(original, cleaned, StringComparison.Ordinal)
@@ -487,23 +451,21 @@ public sealed partial class MainWindow : Window
         var release = UpdateRelease.Latest(releases);
         if (release == null)
         {
-            UpdateCheckStatus.Text = "No published releases were found for the windows-app-sdk branch.";
+            UpdateCheckStatus.Text = "No published release with a Windows ZIP was found.";
             return;
         }
         var latest = UpdateRelease.ParseVersion(LastFmClient.Text(release["tag_name"]))!;
         var currentVersion = typeof(MainWindow).Assembly.GetName().Version ?? new Version(1, 1);
-        if (latest <= currentVersion) { UpdateCheckStatus.Text = "Scrap is up to date (" + currentVersion + ")."; return; }
-        var asset = LastFmClient.Rows(release["assets"]).FirstOrDefault(a =>
-            LastFmClient.Text(a["name"]).EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
-            (LastFmClient.Text(a["name"]).Contains("windows", StringComparison.OrdinalIgnoreCase) || LastFmClient.Text(a["name"]).Contains("win-x64", StringComparison.OrdinalIgnoreCase)));
+        if (latest <= currentVersion) { UpdateCheckStatus.Text = "scrap is up to date (" + currentVersion + ")."; return; }
+        var asset = UpdateRelease.WindowsAsset(release);
         var digest = LastFmClient.Text(asset?["digest"]);
         var download = LastFmClient.Text(asset?["browser_download_url"]);
         if (asset == null || !digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) || !Uri.TryCreate(download, UriKind.Absolute, out var uri) || uri.Host != "github.com")
         {
-            UpdateCheckStatus.Text = $"Scrap {latest} is available, but this release has no Windows ZIP with a SHA-256 digest.";
+            UpdateCheckStatus.Text = $"scrap {latest} is available, but this release has no Windows ZIP with a SHA-256 digest.";
             return;
         }
-        UpdateCheckStatus.Text = $"Scrap {latest} is available. Downloading and verifying…";
+        UpdateCheckStatus.Text = $"scrap {latest} is available. Downloading and verifying…";
         var bytes = await http.GetByteArrayAsync(uri);
         if (bytes.Length == 0 || bytes.Length > 500_000_000) throw new InvalidOperationException("The update archive size is invalid.");
         if (!UpdateRelease.Verify(bytes, digest))
@@ -513,10 +475,10 @@ public sealed partial class MainWindow : Window
         var auto = AutoInstallUpdates.IsChecked == true;
         if (!auto && showCurrent)
         {
-            var dialog = new ContentDialog { Title = $"Scrap {latest} is ready", Content = "The Windows release ZIP passed its published SHA-256 check. Install and restart Scrap now?", PrimaryButtonText = "Install and restart", CloseButtonText = "Later", XamlRoot = Content.XamlRoot };
-            if (await dialog.ShowAsync() != ContentDialogResult.Primary) { UpdateCheckStatus.Text = $"Scrap {latest} downloaded and verified. Choose Check for updates to install it."; return; }
+            var dialog = new ContentDialog { Title = $"scrap {latest} is ready", Content = "The Windows release ZIP passed its published SHA-256 check. Install and restart scrap now?", PrimaryButtonText = "Install and restart", CloseButtonText = "Later", XamlRoot = Content.XamlRoot };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) { UpdateCheckStatus.Text = $"scrap {latest} downloaded and verified. Choose Check for updates to install it."; return; }
         }
-        else if (!auto) { UpdateCheckStatus.Text = $"Scrap {latest} is available. Choose Check for updates to install it."; return; }
+        else if (!auto) { UpdateCheckStatus.Text = $"scrap {latest} is available. Choose Check for updates to install it."; return; }
         ScheduleVerifiedInstall(archive, latest);
     }
 
@@ -532,7 +494,7 @@ public sealed partial class MainWindow : Window
         var install = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         File.WriteAllText(script, UpdateInstaller.Script(install, payload, stage, archive, Environment.ProcessId, backgroundLaunch));
         Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script}\"") { CreateNoWindow = true, UseShellExecute = false });
-        UpdateCheckStatus.Text = $"Installing Scrap {version} and restarting…";
+        UpdateCheckStatus.Text = $"Installing scrap {version} and restarting…";
         quitting = true; Close();
     }
 

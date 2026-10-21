@@ -9,9 +9,9 @@ public sealed class StartupSetting(Func<string?> read, Action<string?> write, st
     private string Command()
     {
         if (string.IsNullOrWhiteSpace(executable) || executable.Contains('"') || executable.Contains('\r') || executable.Contains('\n'))
-            throw new InvalidOperationException("Scrap's executable path is invalid.");
+            throw new InvalidOperationException("scrap's executable path is invalid.");
         var command = $"\"{executable}\"{(arguments.Length == 0 ? "" : " " + arguments)}";
-        if (command.Length > 260) throw new InvalidOperationException("Move Scrap to a shorter path before enabling startup.");
+        if (command.Length > 260) throw new InvalidOperationException("Move scrap to a shorter path before enabling startup.");
         return command;
     }
 }

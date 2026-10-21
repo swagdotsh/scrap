@@ -13,10 +13,12 @@ public static class UpdateRelease
     }
 
     public static JsonNode? Latest(JsonArray releases) => releases
-        .Where(r => r != null && r["draft"]?.GetValue<bool>() != true && r["prerelease"]?.GetValue<bool>() != true &&
-            string.Equals(r["target_commitish"]?.ToString(), "windows-app-sdk", StringComparison.OrdinalIgnoreCase))
+        .Where(r => r != null && r["draft"]?.GetValue<bool>() != true && r["prerelease"]?.GetValue<bool>() != true && WindowsAsset(r) != null)
         .Where(r => ParseVersion(r!["tag_name"]?.ToString() ?? "") != null)
         .OrderByDescending(r => ParseVersion(r!["tag_name"]!.ToString())).FirstOrDefault();
+
+    public static JsonNode? WindowsAsset(JsonNode? release) =>
+        (release?["assets"] as JsonArray)?.OfType<JsonNode>().FirstOrDefault(a => a["name"]?.ToString().EndsWith("windows.zip", StringComparison.OrdinalIgnoreCase) == true);
 
     public static bool Verify(byte[] bytes, string digest)
     {

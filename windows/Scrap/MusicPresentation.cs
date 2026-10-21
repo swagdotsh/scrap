@@ -28,6 +28,31 @@ public static class MusicPresentation
     public static string Biography(string html) => WebUtility.HtmlDecode(Regex.Replace(
         Regex.Replace(html, "<a\\b[^>]*>.*?</a>", "", RegexOptions.Singleline | RegexOptions.IgnoreCase), "<[^>]+>", "")).Trim();
 
+    public static string FriendActivity(JsonNode? track, DateTimeOffset now)
+    {
+        var title = track?["name"]?.ToString() ?? "";
+        if (title.Length == 0) return "No recent listening available";
+        var artistNode = track!["artist"];
+        var artist = artistNode is JsonObject ? artistNode["#text"]?.ToString() ?? artistNode["name"]?.ToString() ?? "" : artistNode?.ToString() ?? "";
+        var line = artist.Length > 0 ? $"{title} · {artist}" : title;
+        if (track["@attr"]?["nowplaying"]?.ToString() == "true") return line + "\nNow playing";
+        return Count(track["date"]?["uts"]) is { } uts ? line + "\n" + Relative(DateTimeOffset.FromUnixTimeSeconds(uts), now) : line;
+    }
+
+    public static string Relative(DateTimeOffset date, DateTimeOffset now)
+    {
+        var elapsed = now - date;
+        static string Plural(long value, string unit) => $"{value} {unit}{(value == 1 ? "" : "s")} ago";
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return Plural((long)elapsed.TotalMinutes, "minute");
+        if (elapsed < TimeSpan.FromDays(1)) return Plural((long)elapsed.TotalHours, "hour");
+        if (elapsed < TimeSpan.FromDays(2)) return "yesterday";
+        if (elapsed < TimeSpan.FromDays(7)) return Plural((long)elapsed.TotalDays, "day");
+        if (elapsed < TimeSpan.FromDays(30)) return Plural((long)elapsed.TotalDays / 7, "week");
+        if (elapsed < TimeSpan.FromDays(365)) return Plural((long)elapsed.TotalDays / 30, "month");
+        return Plural((long)elapsed.TotalDays / 365, "year");
+    }
+
     public static Uri? ImageUrl(JsonNode? images) => ImageUrls(images).FirstOrDefault();
 
     public static IEnumerable<Uri> ImageUrls(JsonNode? images)

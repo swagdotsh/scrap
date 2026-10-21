@@ -8,7 +8,7 @@ public static class TrackLove
     {
         "1" => true,
         "0" => false,
-        _ => throw new InvalidOperationException("Last.fm did not return this track's loved status.")
+        _ => throw new InvalidOperationException("last.fm did not return this track's loved status.")
     };
 
     public static async Task ToggleAsync(Func<Task<bool>> read, Func<bool, Task> write)

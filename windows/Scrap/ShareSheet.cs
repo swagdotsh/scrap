@@ -36,7 +36,7 @@ public static class ShareSheet
     {
         if (currentUrl == null) return;
         args.Request.Data.Properties.Title = string.IsNullOrWhiteSpace(currentTitle) ? "Share track" : currentTitle;
-        args.Request.Data.Properties.Description = "Last.fm track";
+        args.Request.Data.Properties.Description = "last.fm track";
         args.Request.Data.SetWebLink(currentUrl);
     }
 }
