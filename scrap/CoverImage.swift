@@ -3,6 +3,8 @@ import UIKit
 import ImageIO
 
 enum CoverLoader {
+    static let maxAnimatedFrames = 240
+
     static func load(_ url: URL, animated: Bool, maxPixelSize: CGFloat = 600) async -> UIImage? {
         var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
         request.timeoutInterval = 15
@@ -13,7 +15,7 @@ enum CoverLoader {
         let options = [kCGImageSourceCreateThumbnailFromImageAlways: true,
                        kCGImageSourceCreateThumbnailWithTransform: true,
                        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize] as CFDictionary
-        if animated, count > 1 {
+        if animated, count > 1, count <= maxAnimatedFrames {
             var frames: [UIImage] = []
             var duration: TimeInterval = 0
             for index in 0..<count {

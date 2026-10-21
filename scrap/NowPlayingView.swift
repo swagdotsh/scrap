@@ -8,6 +8,11 @@ struct NowPlayingView: View {
     @State private var details: ListeningDetails?
     @State private var animatedCover: UIImage?
     @AppStorage("animatedAlbumCovers") private var animatedSetting = false
+    @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
+    @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
+    @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("removeFeaturedArtists") private var removeFeaturedArtists = false
+    @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @ObservedObject private var conditions = DeviceConditions.shared
 
     private var animatedCovers: Bool { animatedSetting && !conditions.limitsAnimation }
@@ -18,7 +23,7 @@ struct NowPlayingView: View {
                 Section {
                     trackCard(track)
                     if let details {
-                        Text(details.summary(for: track)).font(.subheadline).foregroundStyle(.secondary)
+                        summary(details, track: track).font(.subheadline).foregroundStyle(.secondary)
                         if !details.trackTags.isEmpty { TagChips(tags: details.trackTags) }
                     }
                 }
@@ -79,6 +84,25 @@ struct NowPlayingView: View {
         }
     }
 
+    private func summary(_ details: ListeningDetails, track: PlayingTrack) -> Text {
+        guard let artistCount = details.artistCount, let trackCount = details.trackCount else {
+            return Text("Listening history unavailable.")
+        }
+        let artist = Text(track.artist).bold().foregroundStyle(.primary)
+        let title = Text(track.title).bold().foregroundStyle(.primary)
+        if artistCount == 0 { return Text("You've never scrobbled \(artist) before.") }
+        if trackCount == 0 { return Text("You've scrobbled \(artist) \(artistCount.formatted()) times, but not this track.") }
+        return Text("You've scrobbled \(artist) \(artistCount.formatted()) times and \(title) \(trackCount.formatted()) times.")
+    }
+
+    private func scrobblingAsNote(_ track: PlayingTrack) -> String? {
+        let names = lastFM.scrobbledNames(for: track)
+        guard names.title != track.title || names.artist != track.artist || names.album != track.album else { return nil }
+        var note = "Scrobbling as \(names.title) by \(names.artist)"
+        if !names.album.isEmpty { note += " on \(names.album)" }
+        return note
+    }
+
     private func trackCard(_ track: PlayingTrack) -> some View {
         HStack(spacing: 12) {
             Group {
@@ -104,6 +128,9 @@ struct NowPlayingView: View {
                     Link(destination: track.albumURL) {
                         Text(track.album).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                     }
+                }
+                if let note = scrobblingAsNote(track) {
+                    Text(note).font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.top, 2)
                 }
             }
             .buttonStyle(.borderless)

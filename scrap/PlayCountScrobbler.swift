@@ -84,9 +84,10 @@ final class PlayCountScrobbler: ObservableObject {
         let recent = try await lastFM.recentScrobbles(since: earliest.addingTimeInterval(-window))
         var unmatched = recent
         return plays.filter { play in
+            let names = lastFM.scrobbledNames(for: play.track)
             guard let match = unmatched.firstIndex(where: {
-                $0.artist.caseInsensitiveCompare(play.track.artist) == .orderedSame
-                    && $0.title.caseInsensitiveCompare(play.track.title) == .orderedSame
+                ($0.artist.caseInsensitiveCompare(play.track.artist) == .orderedSame || $0.artist.caseInsensitiveCompare(names.artist) == .orderedSame)
+                    && ($0.title.caseInsensitiveCompare(play.track.title) == .orderedSame || $0.title.caseInsensitiveCompare(names.title) == .orderedSame)
                     && abs($0.date.timeIntervalSince(play.startedAt)) < window
             }) else { return true }
             unmatched.remove(at: match)

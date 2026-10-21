@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("removeFeaturedArtists") private var removeFeaturedArtists = false
     @AppStorage("loveAppleMusicFavorites") private var loveAppleMusicFavorites = false
     @AppStorage("backgroundWork") private var backgroundWork = true
     @AppStorage("nonLibraryScrobbling") private var nonLibraryScrobbling = false
@@ -113,6 +114,10 @@ struct SettingsView: View {
                         Text("Also remove “(Apple Music Edition)”")
                         Text("Drops Apple Music's edition tag from album names.")
                     }
+                }
+                Toggle(isOn: $removeFeaturedArtists) {
+                    Text("Remove “(feat.)” and “(with)” from song titles")
+                    Text("“Wants and Needs (feat. Lil Baby)” is scrobbled as “Wants and Needs”.")
                 }
                 Toggle(isOn: $usePrimaryArtist) {
                     Text("Scrobble only the primary artist")

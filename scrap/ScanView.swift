@@ -28,8 +28,9 @@ enum MissedPlayScanner {
             guard let title = song.title, let artist = song.artist, let lastPlayed = song.lastPlayedDate else { return nil }
             let startedAt = lastPlayed.addingTimeInterval(-song.playbackDuration)
             let tolerance = song.playbackDuration + 15 * 60
+            let scrobbledTitle = lastFM.scrobbledNames(for: PlayingTrack(title: title, artist: artist, album: "", duration: nil)).title.lowercased()
             let matched = known.contains {
-                $0.title == title.lowercased() && artist.lowercased().hasPrefix($0.artist)
+                ($0.title == title.lowercased() || $0.title == scrobbledTitle) && artist.lowercased().hasPrefix($0.artist)
                     && abs($0.date.timeIntervalSince(startedAt)) < tolerance
             }
             guard !matched, startedAt >= cutoff else { return nil }

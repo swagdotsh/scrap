@@ -5,6 +5,7 @@ struct ScrobblesView: View {
     @EnvironmentObject private var scrobbler: PlayCountScrobbler
     @EnvironmentObject private var nowPlaying: NowPlayingListener
     @State private var scrobbles: [RecentScrobble] = []
+    @State private var remoteNowPlaying: RecentScrobble?
     @State private var loaded = false
     @State private var error: String?
 
@@ -29,12 +30,25 @@ struct ScrobblesView: View {
                                 Text(track.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 0)
-                            Text("Now playing")
-                                .font(.caption2.bold())
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Color.accentColor.opacity(0.18), in: Capsule())
+                            nowPlayingBadge
                         }
                     }
+                }
+            } else if let remote = remoteNowPlaying {
+                Section {
+                    Link(destination: remote.destination) {
+                        HStack(spacing: 12) {
+                            RemoteArtwork(url: remote.coverURL)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(remote.title).foregroundStyle(.primary).lineLimit(1)
+                                Text(remote.artist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            nowPlayingBadge
+                        }
+                    }
+                } footer: {
+                    Text("Playing on another device, according to last.fm.")
                 }
             }
 
@@ -74,14 +88,27 @@ struct ScrobblesView: View {
             await lastFM.retryPending()
             await load()
         }
-        .task(id: "\(nowPlaying.track?.title ?? "")|\(lastFM.pendingCount)") { await load() }
+        .task(id: "\(nowPlaying.track?.title ?? "")|\(lastFM.pendingCount)") {
+            while !Task.isCancelled {
+                await load()
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    private var nowPlayingBadge: some View {
+        Text("Now playing")
+            .font(.caption2.bold())
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Color.accentColor.opacity(0.18), in: Capsule())
     }
 
     private func load() async {
         do {
             let result = try await lastFM.recentScrobbles(limit: 50)
             guard !Task.isCancelled else { return }
-            scrobbles = result
+            scrobbles = result.scrobbles
+            remoteNowPlaying = result.nowPlaying
             error = nil
         } catch {
             guard !Task.isCancelled else { return }
