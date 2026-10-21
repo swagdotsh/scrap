@@ -470,6 +470,12 @@ struct ContentView: View {
                             Text(friend.name).font(.headline)
                             Text(friend.track.map { $0 + (friend.artist.map { " · " + $0 } ?? "") } ?? "No recent listening available")
                                 .foregroundStyle(.secondary)
+                            if friend.isNowPlaying {
+                                Label("Now playing", systemImage: "waveform").font(.caption).foregroundStyle(Color.accentColor)
+                            } else if let playedAt = friend.playedAt {
+                                Text(playedAt, format: .relative(presentation: .named))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer(minLength: 0)
                     }.contentShape(Rectangle())
