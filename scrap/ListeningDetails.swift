@@ -111,17 +111,26 @@ extension LastFMClient {
         return details
     }
 
-    func recentScrobbles() async throws -> [RecentScrobble] {
-        guard let username else { return [] }
+    func recentScrobbles() async throws -> (nowPlaying: RecentScrobble?, scrobbles: [RecentScrobble]) {
+        guard let username else { return (nil, []) }
         let json = try await request(["method": "user.getRecentTracks", "user": username, "limit": "50"])
-        guard let root = json["recenttracks"] as? [String: Any] else { return [] }
+        guard let root = json["recenttracks"] as? [String: Any] else { return (nil, []) }
         let rows = root["track"] as? [[String: Any]] ?? (root["track"] as? [String: Any]).map { [$0] } ?? []
-        return rows.enumerated().compactMap { index, row in
-            guard let date = row["date"] as? [String: Any], let timestamp = Self.count(date["uts"]),
-                  let title = row["name"] as? String else { return nil }
-            let artist = row["artist"] as? [String: Any]
-            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist?["#text"] as? String ?? "", date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: Self.cover(row["image"]), coverAlternatives: ArtworkCandidates.urls(row["image"]), trackURL: MusicLink.parse(row).first?.url)
+        var nowPlaying: RecentScrobble?
+        let scrobbles = rows.enumerated().compactMap { index, row -> RecentScrobble? in
+            guard let title = row["name"] as? String else { return nil }
+            let artist = (row["artist"] as? [String: Any])?["#text"] as? String ?? ""
+            let coverURL = Self.cover(row["image"])
+            let alternatives = ArtworkCandidates.urls(row["image"])
+            let trackURL = MusicLink.parse(row).first?.url
+            if (row["@attr"] as? [String: Any])?["nowplaying"] as? String == "true" {
+                nowPlaying = RecentScrobble(id: "now-playing", title: title, artist: artist, date: Date(), coverURL: coverURL, coverAlternatives: alternatives, trackURL: trackURL)
+                return nil
+            }
+            guard let timestamp = Self.count((row["date"] as? [String: Any])?["uts"]) else { return nil }
+            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist, date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: coverURL, coverAlternatives: alternatives, trackURL: trackURL)
         }
+        return (nowPlaying, scrobbles)
     }
 
     func profile() async throws -> ListenerProfile? {

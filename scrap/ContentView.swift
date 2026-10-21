@@ -26,14 +26,17 @@ struct ContentView: View {
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("removeFeaturedArtists") private var removeFeaturedArtists = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("selectedPage") private var selection: Page = .nowPlaying
+    @AppStorage("profileChartPeriod") private var chartPeriod: ChartPeriod = .week
     @State private var report: WeeklyReport?
     @State private var reportWeek = WeeklyReport.latestWeek()
     @State private var reportKey = ""
     @State private var details: ListeningDetails?
     @State private var recent: [RecentScrobble] = []
+    @State private var remoteNowPlaying: RecentScrobble?
     @State private var profile: ListenerProfile?
     @State private var topArtists: [ProfileChartEntry] = []
     @State private var topAlbums: [ProfileChartEntry] = []
@@ -71,7 +74,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 if isMenuBar {
-                    Button("Quit Scrap") { NSApplication.shared.terminate(nil) }
+                    Button("Quit scrap") { NSApplication.shared.terminate(nil) }
                         .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary).padding(10)
                 }
             }
@@ -123,9 +126,9 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             details = result
         }
-        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)") {
+        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)-\(selection == .profile ? chartPeriod.rawValue : "")") {
             guard client.canScrobble else {
-                profile = nil; recent = []; topArtists = []; topAlbums = []; topSongs = []
+                profile = nil; recent = []; remoteNowPlaying = nil; topArtists = []; topAlbums = []; topSongs = []
                 isLoading = false
                 return
             }
@@ -150,23 +153,37 @@ struct ContentView: View {
                 isLoading = false
                 return
             }
+            if selection == .scrobbles {
+                isLoading = recent.isEmpty
+                pageError = nil
+                while !Task.isCancelled {
+                    do {
+                        let result = try await client.recentScrobbles()
+                        guard !Task.isCancelled else { return }
+                        recent = result.scrobbles
+                        remoteNowPlaying = result.nowPlaying
+                        pageError = nil
+                    } catch {
+                        guard !Task.isCancelled else { return }
+                        pageError = error.localizedDescription
+                    }
+                    isLoading = false
+                    try? await Task.sleep(for: .seconds(30))
+                }
+                return
+            }
             isLoading = true
             pageError = nil
             do {
-                if selection == .scrobbles {
-                    let rows = try await client.recentScrobbles()
-                    guard !Task.isCancelled else { return }
-                    recent = rows
-                } else {
-                    let result = try await client.profile()
-                    guard !Task.isCancelled else { return }
-                    profile = result
-                    let artists = try await client.profileChart(kind: "artists")
-                    let albums = try await client.profileChart(kind: "albums")
-                    let songs = try await client.profileChart(kind: "tracks")
-                    guard !Task.isCancelled else { return }
-                    topArtists = artists; topAlbums = albums; topSongs = songs
-                }
+                let result = try await client.profile()
+                guard !Task.isCancelled else { return }
+                profile = result
+                async let artists = client.profileChart(.artists, period: chartPeriod)
+                async let albums = client.profileChart(.albums, period: chartPeriod)
+                async let songs = client.profileChart(.tracks, period: chartPeriod)
+                let (loadedArtists, loadedAlbums, loadedSongs) = try await (artists, albums, songs)
+                guard !Task.isCancelled else { return }
+                topArtists = loadedArtists; topAlbums = loadedAlbums; topSongs = loadedSongs
             } catch {
                 guard !Task.isCancelled else { return }
                 pageError = error.localizedDescription
@@ -222,8 +239,8 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(!client.canScrobble || client.loveRequests.contains([track.artist, track.title]))
-                        .help(loved ? "Unlove on Last.fm" : "Love on Last.fm")
-                        .accessibilityLabel(loved ? "Unlove on Last.fm" : "Love on Last.fm")
+                        .help(loved ? "Unlove on last.fm" : "Love on last.fm")
+                        .accessibilityLabel(loved ? "Unlove on last.fm" : "Love on last.fm")
                     }
                     nowPlayingMetadata(track)
                         .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -265,13 +282,15 @@ struct ContentView: View {
             removeAlbumTypeSuffix: removeAlbumTypeSuffix,
             removeAppleMusicEdition: removeAppleMusicEdition,
             usePrimaryArtist: usePrimaryArtist,
-            preservedArtistNames: preservedArtistNames
+            preservedArtistNames: preservedArtistNames,
+            removeFeaturedArtists: removeFeaturedArtists
         )
+        let titleNote = metadata["track"].flatMap { $0 == track.title ? nil : "\nScrobbling the title as \($0)" } ?? ""
         let artistNote = metadata["artist"].flatMap { $0 == track.artist ? nil : " (scrobbling as \($0))" } ?? ""
         let albumNote = metadata["album"].flatMap { $0 == track.album ? nil : " (scrobbling as \($0))" } ?? ""
         return linkedName(track.artist, url: track.artistURL) + Text(artistNote)
             + Text(track.album.isEmpty ? "" : " - ")
-            + linkedName(track.album, url: track.albumURL).italic() + Text(albumNote)
+            + linkedName(track.album, url: track.albumURL).italic() + Text(albumNote) + Text(titleNote)
     }
 
     private func linkedName(_ name: String, url: URL) -> Text {
@@ -318,16 +337,16 @@ struct ContentView: View {
                     }
                     if !details.biography.isEmpty {
                         ArtistBiography(name: name, text: details.biography)
-                        if let url = details.url { Link("Read more on Last.fm", destination: url).font(.caption) }
+                        if let url = details.url { Link("Read more on last.fm", destination: url).font(.caption) }
                     } else {
                         ArtistPortrait(name: name, size: 72)
                         Text("No biography available.").font(.caption).foregroundStyle(.secondary)
                     }
                     if let plays = details.totalPlays {
                         if let url = details.url {
-                            Link("\(plays.formatted()) total plays on Last.fm", destination: url).font(.caption)
+                            Link("\(plays.formatted()) total plays on last.fm", destination: url).font(.caption)
                         } else {
-                            Text("\(plays.formatted()) total plays on Last.fm").font(.caption)
+                            Text("\(plays.formatted()) total plays on last.fm").font(.caption)
                         }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -401,39 +420,12 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             pageHeader("Scrobbles")
             if listener.isPlaying, let track = listener.track {
-                Link(destination: track.trackURL) {
-                    HStack(spacing: 12) {
-                        Group {
-                            if let url = details?.coverURL {
-                                RemoteAlbumArtwork(url: url, alternatives: details?.coverAlternatives ?? []) {
-                                    RoundedRectangle(cornerRadius: 6).fill(.quaternary)
-                                        .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
-                                }
-                            } else {
-                                RoundedRectangle(cornerRadius: 6).fill(.quaternary)
-                                    .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
-                            }
-                        }
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 8) {
-                                Text(track.title).font(.headline).lineLimit(1)
-                                Spacer(minLength: 0)
-                                Text("Now playing")
-                                    .font(.caption2.bold())
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(Color.accentColor.opacity(0.18), in: Capsule())
-                            }
-                            Text(track.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(10)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
-                    .contentShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-                .help("Open \(track.title) on Last.fm")
+                nowPlayingCard(title: track.title, artist: track.artist, url: track.trackURL,
+                               coverURL: details?.coverURL, alternatives: details?.coverAlternatives ?? [])
+            } else if let remote = remoteNowPlaying {
+                nowPlayingCard(title: remote.title, artist: remote.artist, url: remote.destination,
+                               coverURL: remote.coverURL, alternatives: remote.coverAlternatives,
+                               note: "Playing on another device, according to last.fm")
             }
             if isLoading { ProgressView() }
             if let pageError { Text(pageError).foregroundStyle(.red) }
@@ -464,12 +456,42 @@ struct ContentView: View {
                     }.contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Open \(row.title) on Last.fm")
+                    .help("Open \(row.title) on last.fm")
                     Divider()
                 }
                 if !recent.isEmpty { Text("Latest 50 scrobbles").font(.caption).foregroundStyle(.secondary) }
             }
         }
+    }
+
+    private func nowPlayingCard(title: String, artist: String, url: URL, coverURL: URL?, alternatives: [URL], note: String? = nil) -> some View {
+        Link(destination: url) {
+            HStack(spacing: 12) {
+                RemoteAlbumArtwork(url: coverURL, alternatives: alternatives) {
+                    RoundedRectangle(cornerRadius: 6).fill(.quaternary)
+                        .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+                }
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(title).font(.headline).lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text("Now playing")
+                            .font(.caption2.bold())
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Color.accentColor.opacity(0.18), in: Capsule())
+                    }
+                    Text(artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    if let note { Text(note).font(.caption2).foregroundStyle(.secondary) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(10)
+            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .help("Open \(title) on last.fm")
     }
 
     private var friendsPage: some View {
@@ -481,7 +503,7 @@ struct ContentView: View {
                     .disabled(client.friendsLoading || !client.isConfigured || client.username == nil)
                     .help("Refresh friends")
             }
-            Text("Recent listening · refreshes hourly while Scrap is running")
+            Text("Recent listening · refreshes hourly while scrap is running")
                 .font(.caption).foregroundStyle(.secondary)
             if client.friendsLoading { ProgressView() }
             if let error = client.friendsError { Text(error).font(.caption).foregroundStyle(.red) }
@@ -505,11 +527,11 @@ struct ContentView: View {
                     }.contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Open \(friend.name)’s Last.fm profile")
+                .help("Open \(friend.name)’s last.fm profile")
                 Divider()
             }
             if let updated = client.friendsUpdatedAt {
-                if client.friends.isEmpty { Text("No friends returned by Last.fm.").foregroundStyle(.secondary) }
+                if client.friends.isEmpty { Text("No friends returned by last.fm.").foregroundStyle(.secondary) }
                 Text("Updated \(updated.formatted(date: .omitted, time: .shortened))")
                     .font(.caption).italic().foregroundStyle(.secondary)
             }
@@ -581,7 +603,7 @@ struct ContentView: View {
             }.contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Open \(item.name) on Last.fm")
+        .help("Open \(item.name) on last.fm")
     }
 
     private var profilePage: some View {
@@ -599,18 +621,26 @@ struct ContentView: View {
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 10) {
-                        if let url = profile.url { Link("View on Last.fm", destination: url).font(.caption) }
-                        Button("Reconnect Last.fm") { Task { await client.beginAuth() } }.disabled(client.isBusy)
+                        if let url = profile.url { Link("View on last.fm", destination: url).font(.caption) }
+                        Button("Reconnect last.fm") { Task { await client.beginAuth() } }.disabled(client.isBusy)
                         if client.pendingToken != nil {
                             Button("I've approved it") { Task { await client.completeAuth() } }.disabled(client.isBusy)
                             Text(client.status).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
-                Text("Most played · All time").font(.headline).padding(.top, 8)
-                chartSection("Artists", entries: topArtists, artists: true)
-                chartSection("Albums", entries: topAlbums)
-                chartSection("Songs", entries: topSongs)
+                HStack {
+                    Text("Most played").font(.headline)
+                    Spacer()
+                    Picker("Period", selection: $chartPeriod) {
+                        ForEach(ChartPeriod.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                .padding(.top, 8)
+                chartSection(.artists, entries: topArtists)
+                chartSection(.albums, entries: topAlbums)
+                chartSection(.tracks, entries: topSongs)
             }
 
         }
@@ -623,13 +653,23 @@ struct ContentView: View {
         }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func chartSection(_ title: String, entries: [ProfileChartEntry], artists: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.subheadline.bold())
-            if entries.isEmpty && !isLoading { Text("No listening data yet.").font(.caption).foregroundStyle(.secondary) }
-            ForEach(entries) { item in
+    private func chartSection(_ kind: ChartKind, entries: [ProfileChartEntry]) -> some View {
+        let artists = kind == .artists
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(kind.title).font(.subheadline.bold())
+                Spacer()
+                if !entries.isEmpty {
+                    Button("See more") { ChartGalleryController.shared.show(kind, period: chartPeriod, client: client) }
+                        .buttonStyle(.link).font(.caption)
+                        .help("Show your top 50 \(kind.rawValue) for \(chartPeriod.title.lowercased())")
+                }
+            }
+            if entries.isEmpty && !isLoading { Text("Nothing scrobbled in this period.").font(.caption).foregroundStyle(.secondary) }
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
                 Link(destination: item.link.url) {
                     HStack(spacing: 10) {
+                        Text("\(index + 1)").font(.caption.bold()).monospacedDigit().foregroundStyle(.secondary).frame(width: 16)
                         if artists { ArtistPortrait(name: item.link.name, size: 36) }
                         else { profileImage(item.link.imageURL, size: 36, alternatives: item.link.imageAlternatives) }
                         VStack(alignment: .leading, spacing: 3) {
@@ -656,11 +696,11 @@ struct ContentView: View {
     private var connectionControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             if !client.isConfigured {
-                Text("Add your Last.fm app credentials to .env, then rebuild Scrap.")
+                Text("Add your last.fm app credentials to .env, then rebuild scrap.")
                     .font(.caption).foregroundStyle(.secondary)
             } else {
                 HStack {
-                    Button(client.sessionKey == nil ? "Connect Last.fm" : "Reconnect Last.fm") { Task { await client.beginAuth() } }
+                    Button(client.sessionKey == nil ? "Connect last.fm" : "Reconnect last.fm") { Task { await client.beginAuth() } }
                     if client.pendingToken != nil {
                         Button("I've approved it") { Task { await client.completeAuth() } }
                     }

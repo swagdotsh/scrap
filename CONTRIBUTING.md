@@ -1,10 +1,10 @@
-# Contributing to Scrap
+# Contributing to scrap
 
 Bug fixes, improvements, documentation, and compatibility reports are welcome. For larger changes, open an issue first so we can agree on the scope before you spend time building it.
 
 ## Choose the right branch
 
-Scrap's platform versions live on separate branches. Start from the branch you want to change and target that same branch when opening a pull request:
+scrap's platform versions live on separate branches. Start from the branch you want to change and target that same branch when opening a pull request:
 
 | Platform | Base branch |
 | --- | --- |
@@ -16,7 +16,7 @@ Use the README on your chosen branch for its setup instructions. Keep platform c
 
 ## Build the macOS app
 
-You need Xcode 27 and your own [Last.fm API credentials](https://www.last.fm/api/account/create).
+You need Xcode 27 and your own [last.fm API credentials](https://www.last.fm/api/account/create).
 
 1. Fork the repository and clone your fork.
 2. Start from `main` and create a branch for your change, such as `fix/menu-bar-layout`.
@@ -30,7 +30,7 @@ You need Xcode 27 and your own [Last.fm API credentials](https://www.last.fm/api
 4. Open `scrap.xcodeproj` in Xcode.
 5. Select the `scrap` scheme and your Mac as the destination, then build and run.
 
-Keep `.env` ignored by Git. Its contents are copied into the app bundle, so use it only for the app's Last.fm API configuration. Never add personal account credentials, session tokens, signing keys, or secrets to a commit, issue, or pull request.
+Keep `.env` ignored by Git. Its contents are copied into the app bundle, so use it only for the app's last.fm API configuration. Never add personal account credentials, session tokens, signing keys, or secrets to a commit, issue, or pull request.
 
 ## Make and test your change
 
@@ -41,7 +41,7 @@ The macOS app targets **macOS 14.6 and later**, on both Apple silicon and Intel.
 - Build the `scrap` scheme and run relevant tests using **Product → Test** in Xcode. Add or update tests when changing behavior that benefits from automated coverage.
 - The test targets currently require **macOS 26.5**, even though the app targets 14.6. Report the OS you actually tested on; do not describe Sonoma compatibility as verified without running on Sonoma.
 - For UI changes, check the main window, menu bar popover, and relevant preferences in light and dark appearance. Include screenshots when they help explain the change.
-- For playback or scrobbling changes, check the affected music service, play/pause and track changes, and whether scrobbles are duplicated or missed. Use your own Last.fm account: these checks can send real listening activity.
+- For playback or scrobbling changes, check the affected music service, play/pause and track changes, and whether scrobbles are duplicated or missed. Use your own last.fm account: these checks can send real listening activity.
 - If your change affects offline handling, check queuing and retry behavior. If it affects startup, check launch and the relevant login or Dock settings.
 
 Describe any checks you could not run, including unavailable macOS versions, hardware, or music services.
@@ -59,10 +59,10 @@ Make sure the pull request targets the correct platform branch and required chec
 
 ## Report a bug or suggest a feature
 
-Search [existing issues](https://github.com/swagdotsh/scrap/issues) first. For a bug, include the platform, OS and Scrap versions, music service, steps to reproduce, expected result, and actual result. Remove credentials and private listening or account information from logs and screenshots.
+Search [existing issues](https://github.com/swagdotsh/scrap/issues) first. For a bug, include the platform, OS and scrap versions, music service, steps to reproduce, expected result, and actual result. Remove credentials and private listening or account information from logs and screenshots.
 
 For a feature, explain the use case and how you expect it to work.
 
 ## License
 
-Scrap is licensed under the [MIT License](LICENSE), copyright (c) 2026 zekkie. By submitting a contribution, you agree that it can be distributed under that license.
+scrap is licensed under the [MIT License](LICENSE), copyright (c) 2026 zekkie. By submitting a contribution, you agree that it can be distributed under that license.

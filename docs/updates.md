@@ -1,6 +1,6 @@
 # macOS updates
 
-Scrap 1.4 uses Sparkle 2 to check, download, verify, install, and relaunch updates. Settings → Updates offers a manual check, daily automatic checks (on by default), and automatic download/installation (off by default). Sparkle remembers these preferences. Automatic installations normally finish on quit; its standard UI can offer a restart. The old GitHub checker and reminder timer are no longer used.
+scrap 1.4 uses Sparkle 2 to check, download, verify, install, and relaunch updates. Settings → Updates offers a manual check, daily automatic checks (on by default), and automatic download/installation (off by default). Sparkle remembers these preferences. Automatic installations normally finish on quit; its standard UI can offer a restart. The old GitHub checker and reminder timer are no longer used.
 
 Versions before 1.4 still open GitHub and need one final manual installation. Publishing a GitHub release alone is not enough for Sparkle: publish its matching update feed too.
 
@@ -8,7 +8,7 @@ Versions before 1.4 still open GitHub and need one final manual installation. Pu
 
 `Config/Info.plist` contains only the public Ed25519 key. The matching private key is in the maintainer's login Keychain, under Sparkle's signing-key service and account `com.swagrelated.scrap`. The release-preparation script checks that this key matches the built app before signing. Never commit or upload the private key. Keep a secure backup using Sparkle's `generate_keys --account com.swagrelated.scrap -x <private-backup-file>` if needed. Store that backup outside this repository. Retain the same key for future releases.
 
-This signature authenticates the update archive; it is separate from Apple Developer ID signing and notarization. The current build uses ad-hoc Apple signing. Sparkle verifies the archive signature before extraction. Its installer XPC service and sandbox communication entitlements are enabled because Scrap is sandboxed.
+This signature authenticates the update archive; it is separate from Apple Developer ID signing and notarization. The current build uses ad-hoc Apple signing. Sparkle verifies the archive signature before extraction. Its installer XPC service and sandbox communication entitlements are enabled because scrap is sandboxed.
 
 ## Prepare a release
 

@@ -47,10 +47,10 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 ### Your last.fm account
 
 - Recent scrobbles
-- All-time top artists, albums & tracks
+- Top artists, albums & tracks for the last 7 days, 30 days, 365 days or all time, with a top 50 gallery for each
 - Friends' recent listening activity
 - Love / unlove the currently playing track
-- Tag the current song or artist on Last.fm from the macOS menu bar’s right-click menu; view your tags and community tags before applying up to 10 new tags
+- Tag the current song or artist on last.fm from the macOS menu bar’s right-click menu; view your tags and community tags before applying up to 10 new tags
 
 ### Desktop controls
 
@@ -78,9 +78,9 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 
 That's it. Keep scrap running while you listen.
 
-To scrobble Spotify, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–Last.fm connection.
+To scrobble Spotify, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–last.fm connection.
 
-To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. Scrap uses the [untitled] project name as the Last.fm album name. [untitled] is off by default.
+To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. scrap uses the [untitled] project name as the last.fm album name. [untitled] is off by default.
 
 > [!IMPORTANT]
 > The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings -> Privacy & Security -> Open Anyway** after trying to open it.
@@ -91,7 +91,7 @@ To scrobble [untitled], enable it in **Preferences → Services** and allow scra
 
 ## Updates
 
-Starting with 1.4, **Settings → Updates** can download and install updates inside Scrap. Daily checks are enabled by default; automatic download and installation can be enabled there too. Earlier versions need one final manual update to get this feature.
+Starting with 1.4, **Settings → Updates** can download and install updates inside scrap. Daily checks are enabled by default; automatic download and installation can be enabled there too. Earlier versions need one final manual update to get this feature.
 
 Maintainers: see [Preparing and publishing updates](docs/updates.md) for the signed release and feed workflow.
 

@@ -46,7 +46,7 @@ def main():
         if info.get(key) != value:
             raise ValueError(f"The built app's {key} does not match Config/Info.plist. Rebuild first.")
     if info["CFBundleIdentifier"] != ACCOUNT:
-        raise ValueError("This is not a Scrap release bundle.")
+        raise ValueError("This is not a scrap release bundle.")
     public_key = run(tools / "generate_keys", "--account", ACCOUNT, "-p")
     if public_key != info["SUPublicEDKey"]:
         raise ValueError("The signing key in Keychain does not match the app's public key.")

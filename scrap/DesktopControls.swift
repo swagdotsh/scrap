@@ -19,7 +19,7 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
     init(model: AppModel) {
         self.model = model
         super.init()
-        item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Scrap")
+        item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "scrap")
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -83,7 +83,6 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
         }
         localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
             guard let self else { return event }
-            // Let the status button handle its own toggle on mouse-up.
             if event.window !== self.popover.contentViewController?.view.window,
                event.window !== self.item.button?.window {
                 self.popover.performClose(nil)
@@ -124,7 +123,7 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
         } else {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 350), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
             window.identifier = NSUserInterfaceItemIdentifier("scrap-main-window")
-            window.title = "Scrap"
+            window.title = "scrap"
             window.titleVisibility = .hidden
             window.isReleasedWhenClosed = false
             window.contentViewController = NSHostingController(rootView: ContentView(listener: model.listener, engine: model.engine, client: model.client, updateChecker: model.updateChecker))
@@ -162,7 +161,6 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
     }
     @objc private func shareTrack() {
         guard let track = menuTrack else { return }
-        // Present after the context menu has finished dismissing.
         DispatchQueue.main.async { [weak self] in
             guard let self, let button = self.item.button else { return }
             let picker = NSSharingServicePicker(items: [track.trackURL])
@@ -246,6 +244,7 @@ private struct PreferencesView: View {
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
+    @AppStorage("removeFeaturedArtists") private var removeFeaturedArtists = false
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @AppStorage("scrobbleAppleMusic") private var scrobbleAppleMusic = true
     @AppStorage("loveAppleMusicFavorites") private var loveAppleMusicFavorites = false
@@ -273,12 +272,12 @@ private struct PreferencesView: View {
     private var generalTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Toggle("Show Scrap in the Dock", isOn: $showInDock)
+                Toggle("Show scrap in the Dock", isOn: $showInDock)
                     .onChange(of: showInDock) { _, _ in PreferencesController.applyDockPreference() }
-                Toggle("Open Scrap on logon", isOn: Binding(get: { loginItem.isEnabled }, set: { loginItem.setEnabled($0) }))
+                Toggle("Open scrap on logon", isOn: Binding(get: { loginItem.isEnabled }, set: { loginItem.setEnabled($0) }))
                 if loginItem.needsApproval {
                     HStack {
-                        Text("Allow Scrap in macOS Login Items to finish enabling this.").font(.caption)
+                        Text("Allow scrap in macOS Login Items to finish enabling this.").font(.caption)
                         Button("Open Login Items") { loginItem.openSettings() }
                     }
                 }
@@ -320,7 +319,7 @@ private struct PreferencesView: View {
                 }
                 Divider()
                 Toggle("Love favorited songs (Apple Music)", isOn: $loveAppleMusicFavorites)
-                    .help("Love the current Apple Music song on Last.fm when it is favorited in Music.")
+                    .help("Love the current Apple Music song on last.fm when it is favorited in Music.")
                 VStack(alignment: .leading, spacing: 5) {
                     Toggle("Remove “- Single” and “- EP” from album names", isOn: $removeAlbumTypeSuffix)
                     Text("Example: bfo2\nSummrs - What We Have - EP (scrobbling as What We Have)")
@@ -335,6 +334,12 @@ private struct PreferencesView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.leading, 20)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Remove “(feat.)” and “(with)” from song titles", isOn: $removeFeaturedArtists)
+                    Text("Example: Wants and Needs (feat. Lil Baby) (scrobbling as Wants and Needs)\nDrake - Scary Hours 2")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     Toggle("Use only the first artist before “&”", isOn: $usePrimaryArtist)
@@ -375,7 +380,7 @@ private struct PreferencesView: View {
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(client.username ?? "No Last.fm account connected")
+                    Text(client.username ?? "No last.fm account connected")
                         .font(.headline)
                     Text(client.connectionHelp)
                         .font(.caption).foregroundStyle(.secondary)
@@ -383,7 +388,7 @@ private struct PreferencesView: View {
                 }
             }
             HStack {
-                Button(client.sessionKey == nil ? "Connect Last.fm" : "Reconnect Last.fm") {
+                Button(client.sessionKey == nil ? "Connect last.fm" : "Reconnect last.fm") {
                     Task { await client.beginAuth() }
                 }
                 .disabled(!client.isConfigured || client.isBusy || client.isSending)
@@ -398,7 +403,7 @@ private struct PreferencesView: View {
             HStack {
                 Button("Sign Out") { client.signOut() }
                     .disabled(client.sessionKey == nil || client.isBusy || client.isSending)
-                Button("Remove Last.fm Keychain Data") { showDeleteConfirmation = true }
+                Button("Remove last.fm Keychain Data") { showDeleteConfirmation = true }
                     .disabled((client.sessionKey == nil && client.username == nil) || client.isBusy || client.isSending)
             }
             Text(client.status).font(.caption).foregroundStyle(.secondary)
@@ -406,10 +411,10 @@ private struct PreferencesView: View {
         }
         .padding(16)
         .task(id: client.username) { await refreshProfile() }
-        .confirmationDialog("Remove saved Last.fm account?", isPresented: $showDeleteConfirmation) {
+        .confirmationDialog("Remove saved last.fm account?", isPresented: $showDeleteConfirmation) {
             Button("Remove from Keychain", role: .destructive) { client.signOut() }
         } message: {
-            Text("This removes the saved session key and username from your Mac's Keychain and signs you out of Scrap.")
+            Text("This removes the saved session key and username from your Mac's Keychain and signs you out of scrap.")
         }
     }
 
@@ -434,7 +439,7 @@ private struct PreferencesView: View {
             }
             Text("[untitled] needs Accessibility access. Project names are used as album names.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("If Spotify is already connected to Last.fm, enabling it here may create duplicate scrobbles.")
+            Text("If Spotify is already connected to last.fm, enabling it here may create duplicate scrobbles.")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
         }
@@ -448,7 +453,7 @@ private struct PreferencesView: View {
             }
             Button("Later", role: .cancel) { }
         } message: {
-            Text("Scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on Scrap under Privacy & Security -> Device Control and Data Access.")
+            Text("scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on scrap under Privacy & Security -> Device Control and Data Access.")
         }
     }
 
@@ -469,7 +474,7 @@ private struct PreferencesView: View {
                 set: { updateChecker.setAutomaticDownloads($0) }
             ))
             .disabled(!updateChecker.automaticallyChecksForUpdates)
-            Text("Scrap checks daily. Updates can be downloaded and installed here without visiting GitHub. With automatic installation enabled, updates install when you quit; Scrap may also offer to restart to finish an update.")
+            Text("scrap checks daily. Updates can be downloaded and installed here without visiting GitHub. With automatic installation enabled, updates install when you quit; scrap may also offer to restart to finish an update.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let date = updateChecker.lastCheckDate {

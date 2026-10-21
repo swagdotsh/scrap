@@ -27,12 +27,12 @@ extension LastFMClient {
         var parameters = target.parameters(for: track)
         parameters["method"] = "\(target.methodPrefix).\(personal ? "getTags" : "getTopTags")"
         if personal {
-            guard let username else { throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connect Last.fm to view your tags."]) }
+            guard let username else { throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connect last.fm to view your tags."]) }
             parameters["user"] = username
         }
         let json = try await request(parameters)
         guard let container = json[personal ? "tags" : "toptags"] as? [String: Any] else {
-            throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "Last.fm returned an unexpected tags response."])
+            throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "last.fm returned an unexpected tags response."])
         }
         let entries = container["tag"] as? [[String: Any]] ?? (container["tag"] as? [String: Any]).map { [$0] } ?? []
         return entries.compactMap { $0["name"] as? String }
@@ -41,7 +41,7 @@ extension LastFMClient {
     func addTags(_ input: String, to track: PlayingTrack, target: TagTarget) async throws {
         let tags = try Self.parseTags(input)
         guard canScrobble, let sessionKey else {
-            throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connect Last.fm before applying tags."])
+            throw NSError(domain: "LastFM", code: 0, userInfo: [NSLocalizedDescriptionKey: "Connect last.fm before applying tags."])
         }
         var parameters = target.parameters(for: track)
         parameters["method"] = "\(target.methodPrefix).addTags"
@@ -62,7 +62,7 @@ final class TagWindowController {
             return
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 360), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Tag on Last.fm"
+        window.title = "Tag on last.fm"
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: TagEditor(track: track, client: client, close: { [weak window] in window?.close() }))
         self.window = window
