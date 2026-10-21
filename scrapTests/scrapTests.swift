@@ -240,6 +240,17 @@ struct scrapTests {
         #expect(LastFMClient.formBody(["track": "A&B + C=é"]) == "track=A%26B%20%2B%20C%3D%C3%A9")
     }
 
+    @Test func featuredArtistsCanBeRemovedFromTitles() {
+        #expect(LastFMClient.removingFeaturedArtists(from: "Wants and Needs (feat. Lil Baby)") == "Wants and Needs")
+        #expect(LastFMClient.removingFeaturedArtists(from: "Rich Flex (with 21 Savage)") == "Rich Flex")
+        #expect(LastFMClient.removingFeaturedArtists(from: "Song [Ft. Someone] (Remix)") == "Song (Remix)")
+        #expect(LastFMClient.removingFeaturedArtists(from: "Without Me") == "Without Me")
+        #expect(LastFMClient.removingFeaturedArtists(from: "(with you)") == "(with you)")
+        let track = PlayingTrack(title: "Laugh Now Cry Later (feat. Lil Durk)", artist: "Drake", album: "", duration: nil)
+        #expect(LastFMClient.metadata(for: track, removeAlbumTypeSuffix: false, usePrimaryArtist: false)["track"] == track.title)
+        #expect(LastFMClient.metadata(for: track, removeAlbumTypeSuffix: false, usePrimaryArtist: false, removeFeaturedArtists: true)["track"] == "Laugh Now Cry Later")
+    }
+
     @Test func submissionMetadataCanCleanAlbumAndArtistNames() {
         let collaboration = PlayingTrack(
             title: "No Church in the Wild",
