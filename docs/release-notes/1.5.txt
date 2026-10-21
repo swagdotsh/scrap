@@ -1,4 +1,4 @@
-Scrap 1.5
+scrap 1.5
 
 Now Playing
 - See exactly how artist and album names will be scrobbled when the first-artist or album-suffix cleanup options change them.
@@ -10,4 +10,4 @@ Settings
 
 Menu bar
 - “Love track” now uses a native checkmark to show whether a track is loved. Select it to toggle love status.
-- “Share track” now opens the native macOS sharing picker with the track’s Last.fm link.
+- “Share track” now opens the native macOS sharing picker with the track’s last.fm link.

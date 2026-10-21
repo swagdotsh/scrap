@@ -40,7 +40,7 @@ private struct ChartGalleryView: View {
                 ForEach(Array((entries ?? []).enumerated()), id: \.element.id) { index, entry in
                     Link(destination: entry.link.url) { cell(entry, rank: index + 1) }
                         .buttonStyle(.plain)
-                        .help("Open \(entry.link.name) on Last.fm")
+                        .help("Open \(entry.link.name) on last.fm")
                 }
             }
             .padding(20)

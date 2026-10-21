@@ -11,8 +11,8 @@ final class LastFMClient: ObservableObject {
     @Published private(set) var lastFMReachable: Bool?
     private var checkingConnection = false
     var connectionHelp: String {
-        if !isConfigured { return "Setup needed: Last.fm app credentials are missing." }
-        if sessionKey == nil { return "Not signed in to Last.fm." }
+        if !isConfigured { return "Setup needed: last.fm app credentials are missing." }
+        if sessionKey == nil { return "Not signed in to last.fm." }
         switch lastFMReachable {
         case true: return "Online (Signed in and able to communicate with last.fm)"
         case false: return "Offline (Unable to communicate with last.fm. Check your connection or try again later)"
@@ -26,7 +26,7 @@ final class LastFMClient: ObservableObject {
         checkingConnection = true
         defer { checkingConnection = false }
         do {
-            let result = try await request(["method": "user.getInfo", "sk": sessionKey])
+            let result = try await request(["method": "user.getInfo", "sk": sessionKey], post: true)
             guard self.sessionKey == sessionKey else { return }
             lastFMReachable = result["user"] is [String: Any]
         } catch {
@@ -51,10 +51,10 @@ final class LastFMClient: ObservableObject {
             if hasSession, let username {
                 return "Account saved as \(username). Add the original app credentials to .env and rebuild scrap to resume scrobbling."
             }
-            return "Add app credentials to .env and rebuild scrap, then connect Last.fm."
+            return "Add app credentials to .env and rebuild scrap, then connect last.fm."
         }
         if hasSession, let username { return "Connected as \(username)." }
-        return "Connect your Last.fm account to start scrobbling."
+        return "Connect your last.fm account to start scrobbling."
     }
 
     @Published var friends: [FriendActivity] = []
@@ -100,7 +100,7 @@ final class LastFMClient: ObservableObject {
             friendsUpdatedAt = nil
             friendsAttemptedAt = nil
             friendsError = nil
-            status = "Signed out. Last.fm data removed from Keychain."
+            status = "Signed out. last.fm data removed from Keychain."
         } catch {
             sessionKey = KeychainHelper.load(key: "lastfm_session_key")
             username = KeychainHelper.load(key: "lastfm_username")
@@ -114,7 +114,7 @@ final class LastFMClient: ObservableObject {
         defer { isBusy = false }
         do {
             let json = try await request(["method": "auth.getToken"])
-            guard let token = json["token"] as? String else { throw failure("Last.fm returned no authorization token.") }
+            guard let token = json["token"] as? String else { throw failure("last.fm returned no authorization token.") }
             var url = URLComponents(string: "https://www.last.fm/api/auth/")!
             url.queryItems = [URLQueryItem(name: "api_key", value: apiKey), URLQueryItem(name: "token", value: token)]
             guard NSWorkspace.shared.open(url.url!) else { throw failure("Could not open the authorization page.") }
@@ -130,7 +130,7 @@ final class LastFMClient: ObservableObject {
         do {
             let json = try await request(["method": "auth.getSession", "token": pendingToken])
             guard let session = json["session"] as? [String: Any], let key = session["key"] as? String,
-                  let user = session["name"] as? String else { throw failure("Last.fm returned no session.") }
+                  let user = session["name"] as? String else { throw failure("last.fm returned no session.") }
             try KeychainHelper.save(key: "lastfm_session_key", value: key)
             try KeychainHelper.save(key: "lastfm_username", value: user)
             lovedTracks = [:]
@@ -242,7 +242,7 @@ final class LastFMClient: ObservableObject {
                     throw failure("Unexpected response. Scrobble kept for retry.")
                 }
                 let accepted = String(describing: attributes["accepted"] ?? "0") == "1"
-                status = accepted ? "Scrobbled \(item.track.title)." : "Last.fm ignored \(item.track.title)."
+                status = accepted ? "Scrobbled \(item.track.title)." : "last.fm ignored \(item.track.title)."
                 if accepted { onScrobbled?(item.track) }
                 queue.remove(at: index)
                 persistQueue()
@@ -252,7 +252,7 @@ final class LastFMClient: ObservableObject {
                    ![9, 11, 16, 29].contains(apiError.code) {
                     queue.remove(at: index)
                     persistQueue()
-                    status = "Last.fm rejected \(item.track.title): \(error.localizedDescription)"
+                    status = "last.fm rejected \(item.track.title): \(error.localizedDescription)"
                     continue
                 }
                 status = "\(error.localizedDescription) Scrobble saved; reconnect or use Retry pending."
@@ -272,18 +272,27 @@ final class LastFMClient: ObservableObject {
             removeAlbumTypeSuffix: defaults.bool(forKey: DefaultsKey.removeAlbumTypeSuffix),
             removeAppleMusicEdition: defaults.bool(forKey: "removeAppleMusicEdition"),
             usePrimaryArtist: defaults.bool(forKey: DefaultsKey.usePrimaryArtist),
-            preservedArtistNames: defaults.string(forKey: "preservedArtistNames") ?? Self.defaultPreservedArtistNames
+            preservedArtistNames: defaults.string(forKey: "preservedArtistNames") ?? Self.defaultPreservedArtistNames,
+            removeFeaturedArtists: defaults.bool(forKey: "removeFeaturedArtists")
         )
     }
 
     nonisolated static let defaultPreservedArtistNames = "Earth, Wind & Fire"
+
+    static func removingFeaturedArtists(from title: String) -> String {
+        let pattern = #"\s*[(\[](?:feat\.?|ft\.?|featuring|with)\s[^)\]]*[)\]]"#
+        let cleaned = title.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
+        return cleaned.isEmpty ? title : cleaned
+    }
 
     static func metadata(
         for track: PlayingTrack,
         removeAlbumTypeSuffix: Bool,
         removeAppleMusicEdition: Bool = false,
         usePrimaryArtist: Bool,
-        preservedArtistNames: String = defaultPreservedArtistNames
+        preservedArtistNames: String = defaultPreservedArtistNames,
+        removeFeaturedArtists: Bool = false
     ) -> [String: String] {
         var album = track.album
         if removeAlbumTypeSuffix {
@@ -299,7 +308,6 @@ final class LastFMClient: ObservableObject {
 
         var artist = track.artist
         if usePrimaryArtist {
-            // Match the longest protected name before interpreting collaboration separators.
             let protectedNames = preservedArtistNames.components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
@@ -320,13 +328,14 @@ final class LastFMClient: ObservableObject {
             }
         }
 
-        var params = ["track": track.title, "artist": artist, "album": album]
+        let title = removeFeaturedArtists ? Self.removingFeaturedArtists(from: track.title) : track.title
+        var params = ["track": title, "artist": artist, "album": album]
         if let duration = track.duration { params["duration"] = String(Int(duration)) }
         return params
     }
 
     func request(_ input: [String: String], post: Bool = false) async throws -> [String: Any] {
-        guard isConfigured else { throw failure("Scrap’s API credentials are missing. Restore them to continue.") }
+        guard isConfigured else { throw failure("scrap’s API credentials are missing. Restore them to continue.") }
         var params = input
         params["api_key"] = apiKey
         let base = params.sorted { $0.key < $1.key }.map { $0.key + $0.value }.joined() + sharedSecret
@@ -345,12 +354,12 @@ final class LastFMClient: ObservableObject {
         }
         request.timeoutInterval = 20
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw failure("Invalid Last.fm response.") }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw failure("Invalid last.fm response.") }
         if let code = json["error"] as? Int {
             if code == 9 { sessionKey = nil }
-            throw NSError(domain: "LastFM", code: code, userInfo: [NSLocalizedDescriptionKey: json["message"] as? String ?? "Last.fm error \(code)."] )
+            throw NSError(domain: "LastFM", code: code, userInfo: [NSLocalizedDescriptionKey: json["message"] as? String ?? "last.fm error \(code)."] )
         }
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw failure("Last.fm request failed.") }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw failure("last.fm request failed.") }
         return json
     }
 

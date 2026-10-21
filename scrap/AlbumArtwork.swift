@@ -52,12 +52,10 @@ enum ArtworkCandidates {
     }
 }
 
-/// NSImageView preserves GIF frames and their timing, unlike SwiftUI.Image.
 struct AlbumArtwork: NSViewRepresentable {
     let image: NSImage
 
     static func decode(_ data: Data) -> NSImage? {
-        // Explicitly retain the bitmap representation so AppKit can access GIF frames.
         guard let bitmap = NSBitmapImageRep(data: data),
               (bitmap.value(forProperty: .frameCount) as? NSNumber)?.intValue ?? 0 > 1 else {
             return NSImage(data: data)
@@ -105,7 +103,6 @@ struct AlbumArtwork: NSViewRepresentable {
                                      width: width, height: height)
         }
 
-        // Artwork inside a SwiftUI Link must not intercept its clicks.
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }
