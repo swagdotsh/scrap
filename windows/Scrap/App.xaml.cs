@@ -18,7 +18,16 @@ public partial class App : Application
     {
         try
         {
-            window = new MainWindow();
+            string? page = null;
+            try
+            {
+                var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+                if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.AppNotification &&
+                    activation.Data is Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs notification &&
+                    notification.Arguments.TryGetValue("page", out var target)) page = target;
+            }
+            catch { }
+            window = new MainWindow(page);
             if (!Environment.GetCommandLineArgs().Any(a => string.Equals(a, "--background", StringComparison.OrdinalIgnoreCase))) window.Activate();
         }
         catch (Exception exception) { LogFailure(exception); throw; }

@@ -46,7 +46,7 @@ public sealed partial class MainWindow
         }
         DetailsStatus.Text = "";
         ArtistLinks.Children.Clear();
-        ArtistLinks.Children.Add(new HyperlinkButton { Content = "Artist on Last.fm", NavigateUri = new Uri("https://www.last.fm/music/" + Uri.EscapeDataString(track.Artist)) });
+        ArtistLinks.Children.Add(new HyperlinkButton { Content = "Artist on last.fm", NavigateUri = new Uri("https://www.last.fm/music/" + Uri.EscapeDataString(track.Artist)) });
         ArtistLinks.Children.Add(new HyperlinkButton { Content = "Artwork: TheAudioDB", NavigateUri = new Uri("https://www.theaudiodb.com/") });
 
         async Task Part(string name, Func<Task> load)
@@ -95,7 +95,7 @@ public sealed partial class MainWindow
         });
         if (!client.Configured)
         {
-            ArtistBiography.Text = "Add Last.fm app credentials to load the biography.";
+            ArtistBiography.Text = "Add last.fm app credentials to load the biography.";
             TrackDetails.Text = "Listening history unavailable.";
             await Task.WhenAll(coverTask, portraitTask);
             return;
@@ -214,12 +214,13 @@ public sealed partial class MainWindow
     private void PreviousSimilar(object sender, RoutedEventArgs e) => SimilarScroll.ChangeView(Math.Max(0, SimilarScroll.HorizontalOffset - 372), null, null);
     private void NextSimilar(object sender, RoutedEventArgs e) => SimilarScroll.ChangeView(Math.Min(SimilarScroll.ScrollableWidth, SimilarScroll.HorizontalOffset + 372), null, null);
 
-    private async Task<Uri?> PortraitAsync(string artist)
+    private async Task<Uri?> PortraitAsync(string artist, Func<bool>? active = null)
     {
         await portraitLock.WaitAsync();
         try
         {
             if (portraits.TryGetValue(artist, out var cached) && cached.Expires > DateTimeOffset.UtcNow) return cached.Url;
+            if (active?.Invoke() == false) return null;
             var delay = nextPortraitRequest - DateTimeOffset.UtcNow;
             if (delay > TimeSpan.Zero) await Task.Delay(delay);
             nextPortraitRequest = DateTimeOffset.UtcNow.AddSeconds(2.1);

@@ -1,4 +1,5 @@
 using Scrap;
+using System.Text.Json.Nodes;
 
 var start = DateTimeOffset.FromUnixTimeSeconds(1000);
 var track = new PlayingTrack("A&B + C", "Artist", "Album", 60);
@@ -181,10 +182,14 @@ Test("Updater accepts old and compatible Windows release tags", () =>
         Equal(new Version(1, 1), UpdateRelease.ParseVersion(tag));
     Equal<Version?>(null, UpdateRelease.ParseVersion("nonsense"));
 });
-Test("Updater ignores drafts, prereleases, and macOS releases and selects newest Windows", () =>
+Test("Updater ignores drafts, prereleases, and releases without a Windows ZIP and selects newest Windows", () =>
 {
-    var releases = System.Text.Json.Nodes.JsonNode.Parse("""[{"tag_name":"v1.1-windows","target_commitish":"windows-app-sdk"},{"tag_name":"windows-v1.2.0","target_commitish":"windows-app-sdk"},{"tag_name":"v9.0","target_commitish":"main"},{"tag_name":"windows-v9.0","target_commitish":"windows-app-sdk","draft":true},{"tag_name":"windows-v8.0","target_commitish":"windows-app-sdk","prerelease":true}]""")!.AsArray();
-    Equal("windows-v1.2.0", UpdateRelease.Latest(releases)?["tag_name"]?.ToString());
+    var win = """[{"name":"scrap-windows.zip"}]""";
+    var releases = System.Text.Json.Nodes.JsonNode.Parse($$$"""[{"tag_name":"v1.1-windows","assets":{{{win}}}},{"tag_name":"v1.7","target_commitish":"main","assets":[{"name":"scrap.dmg"},{"name":"scrap-1.7.0-windows.zip"}]},{"tag_name":"v9.0","assets":[{"name":"scrap.dmg"},{"name":"windows-notes.txt"},{"name":"scrap-windows-x64.zip.sha256"}]},{"tag_name":"windows-v9.0","draft":true,"assets":{{{win}}}},{"tag_name":"windows-v8.0","prerelease":true,"assets":{{{win}}}}]""")!.AsArray();
+    var latest = UpdateRelease.Latest(releases);
+    Equal("v1.7", latest?["tag_name"]?.ToString());
+    Equal("scrap-1.7.0-windows.zip", UpdateRelease.WindowsAsset(latest)?["name"]?.ToString());
+    Equal<System.Text.Json.Nodes.JsonNode?>(null, UpdateRelease.WindowsAsset(System.Text.Json.Nodes.JsonNode.Parse("""{"assets":[{"name":"Scrap-Windows-v1.1.0-x64.zip"}]}""")));
 });
 Test("Updater verifies archive bytes and rejects malformed or changed digests", () =>
 {
@@ -224,5 +229,87 @@ Test("Updater installs and preserves credentials, and rolls back if launch fails
         if (!root.StartsWith(Path.Combine(Path.GetTempPath(), "Scrap-update-test-"), StringComparison.OrdinalIgnoreCase)) throw new Exception("Invalid test path");
         Directory.Delete(root, true);
     }
+});
+Test("Featured artists can be removed from titles", () =>
+{
+    Equal("Wants and Needs", MetadataCleanup.RemovingFeaturedArtists("Wants and Needs (feat. Lil Baby)"));
+    Equal("Rich Flex", MetadataCleanup.RemovingFeaturedArtists("Rich Flex (with 21 Savage)"));
+    Equal("Song (Remix)", MetadataCleanup.RemovingFeaturedArtists("Song [Ft. Someone] (Remix)"));
+    Equal("Without Me", MetadataCleanup.RemovingFeaturedArtists("Without Me"));
+    Equal("(with you)", MetadataCleanup.RemovingFeaturedArtists("(with you)"));
+    var song = new PlayingTrack("Laugh Now Cry Later (feat. Lil Durk)", "Drake", "", null);
+    Equal(song.Title, MetadataCleanup.Defaults.Apply(song, "AppleMusic").Title);
+    var cleaned = new MetadataCleanup(RemoveFeaturedArtists: true).Apply(song, "Spotify");
+    Equal("Laugh Now Cry Later", cleaned.Title); Equal(song.Title, cleaned.OriginalTitle);
+});
+Test("Weekly reports run Saturday to Friday and switch over on Friday", () =>
+{
+    Equal((new DateTime(2026, 10, 10), new DateTime(2026, 10, 17)), WeeklyReport.LatestWeek(new DateTime(2026, 10, 22, 23, 59, 0)));
+    Equal((new DateTime(2026, 10, 17), new DateTime(2026, 10, 24)), WeeklyReport.LatestWeek(new DateTime(2026, 10, 23)));
+    Equal((new DateTime(2026, 10, 17), new DateTime(2026, 10, 24)), WeeklyReport.LatestWeek(new DateTime(2026, 10, 24, 9, 0, 0)));
+    Equal(new DateTime(2026, 10, 30), WeeklyReport.NextReportDate(new DateTime(2026, 10, 24)));
+});
+Test("Report notifications follow Friday 16:00 Zurich time across daylight saving", () =>
+{
+    Equal(DateTimeOffset.Parse("2026-10-23T14:00:00Z"), ReportSchedule.Latest(DateTimeOffset.Parse("2026-10-23T14:00:00Z")));
+    Equal(DateTimeOffset.Parse("2026-10-16T14:00:00Z"), ReportSchedule.Latest(DateTimeOffset.Parse("2026-10-23T13:59:00Z")));
+    Equal(DateTimeOffset.Parse("2026-10-30T15:00:00Z"), ReportSchedule.Next(DateTimeOffset.Parse("2026-10-23T14:00:00Z")));
+    var utc = ReportSchedule.Description(DateTimeOffset.Parse("2026-10-31T00:00:00Z"), TimeZoneInfo.Utc);
+    if (!utc.StartsWith("Every Friday at 16:00 Central European Time, which is ") || !utc.Contains("15")) throw new Exception(utc);
+});
+Test("Friend activity shows now playing, relative time, or nothing", () =>
+{
+    var now = DateTimeOffset.FromUnixTimeSeconds(1_000_000);
+    JsonNode Track(string json) => JsonNode.Parse(json)!;
+    Equal("Song · Drake\nNow playing", MusicPresentation.FriendActivity(Track("""{"name":"Song","artist":{"#text":"Drake"},"@attr":{"nowplaying":"true"}}"""), now));
+    Equal("Song · Drake\n3 hours ago", MusicPresentation.FriendActivity(Track("""{"name":"Song","artist":{"#text":"Drake"},"date":{"uts":"989200"}}"""), now));
+    Equal("No recent listening available", MusicPresentation.FriendActivity(null, now));
+    Equal("just now", MusicPresentation.Relative(now.AddSeconds(-30), now));
+    Equal("1 minute ago", MusicPresentation.Relative(now.AddMinutes(-1), now));
+    Equal("yesterday", MusicPresentation.Relative(now.AddHours(-30), now));
+    Equal("2 weeks ago", MusicPresentation.Relative(now.AddDays(-15), now));
+});
+Test("Weekly report totals the week and finds first plays", () =>
+{
+    var start = new DateTime(2026, 10, 10); var end = new DateTime(2026, 10, 17);
+    long At(int day) => new DateTimeOffset(start.AddDays(day).AddHours(12)).ToUnixTimeSeconds();
+    string Play(string title, string artist, string album, int day) => $$$$"""{"name":"{{{{title}}}}","artist":{"#text":"{{{{artist}}}}"},"album":{"#text":"{{{{album}}}}"},"date":{"uts":"{{{{At(day)}}}}"}}""";
+    var tracks = string.Join(",", Play("Song1", "A", "X", 0), Play("Song1", "A", "X", 1), Play("Song1", "A", "X", 2), Play("Song2", "B", "Y", 3), Play("Later", "C", "Z", 8),
+        """{"name":"Live","artist":{"#text":"A"},"@attr":{"nowplaying":"true"}}""");
+    var counts = new Dictionary<string, string> { ["A"] = "10", ["B"] = "1", ["C"] = "1", ["X"] = "3", ["Y"] = "5", ["Song1"] = "3", ["Song2"] = "7" };
+    var report = WeeklyReport.BuildAsync(args =>
+    {
+        if (args["method"] != "user.getRecentTracks" && args.GetValueOrDefault("username") != "me") throw new Exception("Missing username");
+        return Task.FromResult(JsonNode.Parse(args["method"] switch
+        {
+            "user.getRecentTracks" when args["limit"] == "1" => """{"recenttracks":{"@attr":{"total":"2"}}}""",
+            "user.getRecentTracks" => $$$$"""{"recenttracks":{"@attr":{"totalPages":"1"},"track":[{{{{tracks}}}}]}}""",
+            "artist.getInfo" => $$$$"""{"artist":{"stats":{"userplaycount":"{{{{counts[args["artist"]]}}}}"}}}""",
+            "album.getInfo" => $$$$"""{"album":{"userplaycount":"{{{{counts[args["album"]]}}}}"}}""",
+            _ => $$$$"""{"track":{"userplaycount":"{{{{counts[args["track"]]}}}}"}}"""
+        })!);
+    }, "me", start, end).GetAwaiter().GetResult();
+    Equal(4, report.Scrobbles); Equal(2L, report.PreviousScrobbles);
+    Equal("A", report.TopArtist?.Name); Equal(3L, report.TopArtist?.Count);
+    Equal("X", report.TopAlbum?.Name); Equal("Song1", report.TopTrack?.Name);
+    Equal("B", string.Join(",", report.NewArtists.Select(i => i.Name)));
+    Equal("X", string.Join(",", report.NewAlbums.Select(i => i.Name)));
+    Equal("Song1", string.Join(",", report.NewTracks.Select(i => i.Name)));
+});
+Test("Profile charts use the chosen period and fetch track covers only for short charts", () =>
+{
+    Equal("7day", ChartPeriod.From(null).Key); Equal("overall", ChartPeriod.From("overall").Key);
+    var lookups = 0; string? period = null;
+    Task<JsonNode> Fake(Dictionary<string, string> args)
+    {
+        if (args["method"] == "track.getInfo") { lookups++; return Task.FromResult(JsonNode.Parse("""{"track":{"album":{"image":[{"#text":"https://example.com/cover.jpg"}]}}}""")!); }
+        period = args["period"];
+        return Task.FromResult(JsonNode.Parse("""{"toptracks":{"track":[{"name":"T","artist":{"name":"Drake"},"playcount":"9","image":[]},{"name":"T","artist":{"name":"Drake"},"playcount":"9"}]}}""")!);
+    }
+    var five = ProfileCharts.LoadAsync(Fake, "me", "tracks", ChartPeriod.From("1month")).GetAwaiter().GetResult();
+    Equal("1month", period); Equal(1, five.Count); Equal(9L, five[0].Count);
+    Equal("https://example.com/cover.jpg", five[0].Images.FirstOrDefault()?.AbsoluteUri);
+    var fifty = ProfileCharts.LoadAsync(Fake, "me", "tracks", ChartPeriod.From("1month"), 50).GetAwaiter().GetResult();
+    Equal(1, lookups); Equal(0, fifty[0].Images.Length);
 });
 Console.WriteLine($"{passed} tests passed.");

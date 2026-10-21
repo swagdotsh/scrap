@@ -17,8 +17,9 @@ public sealed class LastFmClient : IDisposable
     public bool Connected => Configured && sessionKey.Length > 0 && Username != null;
     public bool Paused { get; set; }
     public int PendingCount => queue.Count;
-    public string Status { get; private set; } = "Connect your Last.fm account to start scrobbling.";
+    public string Status { get; private set; } = "Connect your last.fm account to start scrobbling.";
     public event Action? AccountChanged;
+    public event Action<PlayingTrack>? Scrobbled;
 
     public void Initialize()
     {
@@ -29,24 +30,24 @@ public sealed class LastFmClient : IDisposable
         if (session is { } saved) { Username = saved.User; sessionKey = saved.Secret; }
         queue = LocalStore.Load<List<Submission>>("pending.json", []);
         if (Connected) Status = $"Connected as {Username}.";
-        else if (!Configured) Status = "Add Last.fm credentials to .env and rebuild Scrap.";
+        else if (!Configured) Status = "Add last.fm credentials to .env and rebuild scrap.";
     }
 
     public async Task<Uri> BeginAuthAsync()
     {
         var result = await RequestAsync(new() { ["method"] = "auth.getToken" });
         PendingToken = Text(result["token"]);
-        if (PendingToken.Length == 0) throw new InvalidOperationException("Last.fm returned no token.");
+        if (PendingToken.Length == 0) throw new InvalidOperationException("last.fm returned no token.");
         return new Uri($"https://www.last.fm/api/auth/?api_key={Uri.EscapeDataString(apiKey)}&token={Uri.EscapeDataString(PendingToken)}");
     }
 
     public async Task CompleteAuthAsync()
     {
-        if (PendingToken == null) throw new InvalidOperationException("Connect Last.fm first.");
+        if (PendingToken == null) throw new InvalidOperationException("Connect last.fm first.");
         var result = await RequestAsync(new() { ["method"] = "auth.getSession", ["token"] = PendingToken });
         var key = Text(result["session"]?["key"]);
         var user = Text(result["session"]?["name"]);
-        if (key.Length == 0 || user.Length == 0) throw new InvalidOperationException("Last.fm returned no session.");
+        if (key.Length == 0 || user.Length == 0) throw new InvalidOperationException("last.fm returned no session.");
         LocalStore.SaveCredential("Scrap.LastFm.Session", user, key);
         sessionKey = key; Username = user; PendingToken = null;
         Status = $"Connected as {user}.";
@@ -94,8 +95,9 @@ public sealed class LastFmClient : IDisposable
                 next.Remove(item);
                 LocalStore.Save("pending.json", next);
                 queue = next;
-                Status = Text(result["scrobbles"]?["@attr"]?["accepted"]) == "1"
-                    ? $"Scrobbled {item.Track.Title}." : $"Last.fm ignored {item.Track.Title}.";
+                var accepted = Text(result["scrobbles"]?["@attr"]?["accepted"]) == "1";
+                Status = accepted ? $"Scrobbled {item.Track.Title}." : $"last.fm ignored {item.Track.Title}.";
+                if (accepted) Scrobbled?.Invoke(item.Track);
             }
         }
         finally { sendLock.Release(); }
@@ -103,14 +105,14 @@ public sealed class LastFmClient : IDisposable
 
     public async Task<bool> IsLovedAsync(PlayingTrack track)
     {
-        if (!Connected) throw new InvalidOperationException("Connect Last.fm first.");
+        if (!Connected) throw new InvalidOperationException("Connect last.fm first.");
         var result = await RequestAsync(new() { ["method"] = "track.getInfo", ["artist"] = track.Artist, ["track"] = track.Title, ["username"] = Username! });
         return TrackLove.Parse(result);
     }
 
     public async Task LoveAsync(PlayingTrack track, bool loved)
     {
-        if (!Connected) throw new InvalidOperationException("Connect Last.fm first.");
+        if (!Connected) throw new InvalidOperationException("Connect last.fm first.");
         await RequestAsync(Metadata(track, loved ? "track.love" : "track.unlove"), true);
         Status = loved ? $"Loved {track.Title}." : $"Unloved {track.Title}.";
     }
@@ -136,7 +138,7 @@ public sealed class LastFmClient : IDisposable
 
     private async Task AddTagsAsync(string method, Dictionary<string, string> args, IEnumerable<string> tags)
     {
-        if (!Connected) throw new InvalidOperationException("Connect Last.fm first.");
+        if (!Connected) throw new InvalidOperationException("Connect last.fm first.");
         var values = tags.Select(t => t.Trim()).Where(t => t.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToArray();
         if (values.Length == 0) throw new InvalidOperationException("Enter at least one tag.");
         args["method"] = method; args["tags"] = string.Join(',', values); args["sk"] = sessionKey;
@@ -152,7 +154,7 @@ public sealed class LastFmClient : IDisposable
 
     public async Task<JsonNode> RequestAsync(Dictionary<string, string> args, bool post = false)
     {
-        if (!Configured) throw new InvalidOperationException("Add your Last.fm API key and shared secret to .env and rebuild Scrap.");
+        if (!Configured) throw new InvalidOperationException("Add your last.fm API key and shared secret to .env and rebuild scrap.");
         args = new(args) { ["api_key"] = apiKey };
         var signature = string.Concat(args.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + p.Value)) + sharedSecret;
         args["api_sig"] = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(signature))).ToLowerInvariant();
@@ -162,7 +164,7 @@ public sealed class LastFmClient : IDisposable
             "https://ws.audioscrobbler.com/2.0/" + (post ? "" : "?" + await form.ReadAsStringAsync()));
         if (post) request.Content = form;
         using var response = await http.SendAsync(request);
-        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync()) ?? throw new InvalidOperationException("Empty Last.fm response.");
+        var json = JsonNode.Parse(await response.Content.ReadAsStringAsync()) ?? throw new InvalidOperationException("Empty last.fm response.");
         if (json["error"] != null)
         {
             if (Text(json["error"]) == "9") SignOut();

@@ -21,20 +21,20 @@ public sealed class TrayIcon : IDisposable
         callback = WindowProc;
         icon = LoadImage(0, Path.Combine(AppContext.BaseDirectory, "Assets", "Scrap.ico"), 1,
             GetSystemMetrics(49), GetSystemMetrics(50), 0x10);
-        if (icon == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not load the Scrap tray icon.");
+        if (icon == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not load the scrap tray icon.");
         data = new NotifyIconData
         {
             Size = (uint)Marshal.SizeOf<NotifyIconData>(), Window = window, Id = 1,
             Flags = 1 | 2 | 4, CallbackMessage = CallbackMessage,
-            Icon = icon, Tip = "Scrap", Info = "", InfoTitle = ""
+            Icon = icon, Tip = "scrap", Info = "", InfoTitle = ""
         };
-        if (!SetWindowSubclass(window, callback, 1, 0)) { DestroyIcon(icon); throw new Win32Exception("Could not attach the Scrap tray icon."); }
+        if (!SetWindowSubclass(window, callback, 1, 0)) { DestroyIcon(icon); throw new Win32Exception("Could not attach the scrap tray icon."); }
         Available = Shell_NotifyIcon(0, ref data);
         if (!Available)
         {
             RemoveWindowSubclass(window, callback, 1);
             DestroyIcon(icon);
-            throw new Win32Exception("Could not create the Scrap tray icon.");
+            throw new Win32Exception("Could not create the scrap tray icon.");
         }
     }
 
@@ -60,8 +60,8 @@ public sealed class TrayIcon : IDisposable
         if (!Available || disposed) return;
         var notification = data;
         notification.Flags = 0x10;
-        notification.InfoTitle = "Scrap is in the tray";
-        notification.Info = "Scrap is still running. Click its tray icon to reopen it, or right-click and choose Quit Scrap to exit.";
+        notification.InfoTitle = "scrap is in the tray";
+        notification.Info = "scrap is still running. Click its tray icon to reopen it, or right-click and choose Quit scrap to exit.";
         notification.InfoFlags = 1;
         Shell_NotifyIcon(1, ref notification);
     }
@@ -78,13 +78,13 @@ public sealed class TrayIcon : IDisposable
             AppendMenu(menu, 1, 8, string.IsNullOrWhiteSpace(currentTitle) ? "Nothing playing" : currentTitle);
             AppendMenu(menu, 1, 9, string.IsNullOrWhiteSpace(currentArtistAlbum) ? "—" : currentArtistAlbum);
             AppendMenu(menu, 0x800, 0, "");
-            AppendMenu(menu, 0, 1, "Open Scrap");
+            AppendMenu(menu, 0, 1, "Open scrap");
             AppendMenu(menu, 0, 3, "Settings");
             AppendMenu(menu, toggleLove == null ? 1u : 0u, 4, loveLabel);
             AppendMenu(menu, canTag ? 0u : 1u, 5, "Tag track…");
             AppendMenu(menu, canTag ? 0u : 1u, 6, "Tag artist…");
             AppendMenu(menu, 0x800, 0, "");
-            AppendMenu(menu, 0, 2, "Quit Scrap");
+            AppendMenu(menu, 0, 2, "Quit scrap");
             GetCursorPos(out var point);
             SetForegroundWindow(window);
             selected = TrackPopupMenu(menu, 0x100 | 0x2, point.X, point.Y, 0, window, 0);

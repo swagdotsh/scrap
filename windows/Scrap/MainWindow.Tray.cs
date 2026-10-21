@@ -19,7 +19,7 @@ public sealed partial class MainWindow
                 current?.Title == track?.Title && current?.Artist == track?.Artist;
             if (track == null || !client.Connected)
             {
-                tray?.ShowMenu(track == null ? "Love track (nothing playing)" : "Love track (connect Last.fm)", null, false, track?.Title, artistAlbum);
+                tray?.ShowMenu(track == null ? "Love track (nothing playing)" : "Love track (connect last.fm)", null, false, track?.Title, artistAlbum);
                 return;
             }
             bool loved;
