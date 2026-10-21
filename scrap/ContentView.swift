@@ -29,6 +29,7 @@ struct ContentView: View {
     @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("selectedPage") private var selection: Page = .nowPlaying
+    @AppStorage("profileChartPeriod") private var chartPeriod: ChartPeriod = .week
     @State private var report: WeeklyReport?
     @State private var reportWeek = WeeklyReport.latestWeek()
     @State private var reportKey = ""
@@ -123,7 +124,7 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             details = result
         }
-        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)") {
+        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)-\(selection == .profile ? chartPeriod.rawValue : "")") {
             guard client.canScrobble else {
                 profile = nil; recent = []; topArtists = []; topAlbums = []; topSongs = []
                 isLoading = false
@@ -161,11 +162,12 @@ struct ContentView: View {
                     let result = try await client.profile()
                     guard !Task.isCancelled else { return }
                     profile = result
-                    let artists = try await client.profileChart(kind: "artists")
-                    let albums = try await client.profileChart(kind: "albums")
-                    let songs = try await client.profileChart(kind: "tracks")
+                    async let artists = client.profileChart(.artists, period: chartPeriod)
+                    async let albums = client.profileChart(.albums, period: chartPeriod)
+                    async let songs = client.profileChart(.tracks, period: chartPeriod)
+                    let (loadedArtists, loadedAlbums, loadedSongs) = try await (artists, albums, songs)
                     guard !Task.isCancelled else { return }
-                    topArtists = artists; topAlbums = albums; topSongs = songs
+                    topArtists = loadedArtists; topAlbums = loadedAlbums; topSongs = loadedSongs
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -607,10 +609,18 @@ struct ContentView: View {
                         }
                     }
                 }
-                Text("Most played · All time").font(.headline).padding(.top, 8)
-                chartSection("Artists", entries: topArtists, artists: true)
-                chartSection("Albums", entries: topAlbums)
-                chartSection("Songs", entries: topSongs)
+                HStack {
+                    Text("Most played").font(.headline)
+                    Spacer()
+                    Picker("Period", selection: $chartPeriod) {
+                        ForEach(ChartPeriod.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                .padding(.top, 8)
+                chartSection(.artists, entries: topArtists)
+                chartSection(.albums, entries: topAlbums)
+                chartSection(.tracks, entries: topSongs)
             }
 
         }
@@ -623,13 +633,23 @@ struct ContentView: View {
         }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
-    private func chartSection(_ title: String, entries: [ProfileChartEntry], artists: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.subheadline.bold())
-            if entries.isEmpty && !isLoading { Text("No listening data yet.").font(.caption).foregroundStyle(.secondary) }
-            ForEach(entries) { item in
+    private func chartSection(_ kind: ChartKind, entries: [ProfileChartEntry]) -> some View {
+        let artists = kind == .artists
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(kind.title).font(.subheadline.bold())
+                Spacer()
+                if !entries.isEmpty {
+                    Button("See more") { ChartGalleryController.shared.show(kind, period: chartPeriod, client: client) }
+                        .buttonStyle(.link).font(.caption)
+                        .help("Show your top 50 \(kind.rawValue) for \(chartPeriod.title.lowercased())")
+                }
+            }
+            if entries.isEmpty && !isLoading { Text("Nothing scrobbled in this period.").font(.caption).foregroundStyle(.secondary) }
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
                 Link(destination: item.link.url) {
                     HStack(spacing: 10) {
+                        Text("\(index + 1)").font(.caption.bold()).monospacedDigit().foregroundStyle(.secondary).frame(width: 16)
                         if artists { ArtistPortrait(name: item.link.name, size: 36) }
                         else { profileImage(item.link.imageURL, size: 36, alternatives: item.link.imageAlternatives) }
                         VStack(alignment: .leading, spacing: 3) {

@@ -47,7 +47,7 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 ### Your last.fm account
 
 - Recent scrobbles
-- All-time top artists, albums & tracks
+- Top artists, albums & tracks for the last 7 days, 30 days, 365 days or all time, with a top 50 gallery for each
 - Friends' recent listening activity
 - Love / unlove the currently playing track
 - Tag the current song or artist on Last.fm from the macOS menu bar’s right-click menu; view your tags and community tags before applying up to 10 new tags
