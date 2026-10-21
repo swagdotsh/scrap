@@ -41,6 +41,8 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 - Artist biographies, tags & similar artists
 - Artist top albums & tracks
 - Album artwork and links to last.fm
+- Weekly reports (Saturday to Friday): scrobbles vs last week, top artist, album and track, and new artists, albums and tracks you discovered
+- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time)
 
 ### Your last.fm account
 

@@ -251,6 +251,9 @@ private struct PreferencesView: View {
     @AppStorage("loveAppleMusicFavorites") private var loveAppleMusicFavorites = false
     @AppStorage("scrobbleSpotify") private var scrobbleSpotify = false
     @AppStorage("scrobbleUntitled") private var scrobbleUntitled = false
+    @AppStorage("notifyMilestones") private var notifyMilestones = true
+    @AppStorage("notifyNewArtists") private var notifyNewArtists = true
+    @AppStorage("notifyWeeklyReport") private var notifyWeeklyReport = true
     @State private var accountProfile: ListenerProfile?
     @State private var showDeleteConfirmation = false
     @State private var showUntitledAccessibilityAlert = false
@@ -296,6 +299,25 @@ private struct PreferencesView: View {
                         .monospacedDigit().frame(width: 40)
                 }
                 .help("Higher opacity improves text readability. 100% gives a solid background.")
+                Divider()
+                Text("Notifications").font(.headline)
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Milestones", isOn: $notifyMilestones)
+                    Text("Every \(Notifier.milestoneStep.formatted()) scrobbles.").font(.caption).foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("New artist discovered", isOn: $notifyNewArtists)
+                    Text("When you scrobble an artist for the first time.").font(.caption).foregroundStyle(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Toggle("Weekly report", isOn: $notifyWeeklyReport)
+                        .onChange(of: notifyWeeklyReport) { _, _ in Task { await Notifier.scheduleWeeklyReports() } }
+                    Text(Notifier.reportTimeDescription).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .onChange(of: notifyMilestones || notifyNewArtists || notifyWeeklyReport) { _, anyOn in
+                    if anyOn { Task { await Notifier.requestAuthorization() } }
+                }
                 Divider()
                 Toggle("Love favorited songs (Apple Music)", isOn: $loveAppleMusicFavorites)
                     .help("Love the current Apple Music song on Last.fm when it is favorited in Music.")
