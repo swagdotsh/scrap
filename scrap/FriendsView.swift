@@ -20,6 +20,12 @@ struct FriendsView: View {
                             if let track = friend.track {
                                 Text([track, friend.artist].compactMap { $0 }.joined(separator: " — "))
                                     .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                if friend.isNowPlaying {
+                                    Label("Now playing", systemImage: "waveform").font(.caption).foregroundStyle(Color.accentColor)
+                                } else if let playedAt = friend.playedAt {
+                                    Text(playedAt, format: .relative(presentation: .named))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                             } else {
                                 Text("No recent scrobbles").font(.subheadline).foregroundStyle(.secondary)
                             }

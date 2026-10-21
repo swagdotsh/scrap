@@ -95,9 +95,11 @@ struct ListenerProfile {
 
 struct FriendActivity: Identifiable {
     let name: String
-    let track: String?
-    let artist: String?
+    var track: String?
+    var artist: String?
     var avatarURL: URL? = nil
+    var isNowPlaying = false
+    var playedAt: Date?
     var profileURL: URL {
         URL(string: "https://www.last.fm/user/")!.appendingPathComponent(name)
     }
@@ -108,11 +110,20 @@ struct FriendActivity: Identifiable {
         let recent = row["recenttrack"] as? [String: Any]
         let group = row["recenttracks"] as? [String: Any]
         let track = recent ?? (group?["track"] as? [[String: Any]])?.first ?? (group?["track"] as? [String: Any])
-        let artist = track?["artist"] as? [String: Any]
         let images = row["image"] as? [[String: Any]] ?? []
         let avatar = images.reversed().compactMap { ($0["#text"] as? String).flatMap(URL.init(string:)) }.first { $0.scheme == "https" }
-        return FriendActivity(name: name, track: track?["name"] as? String,
-                              artist: artist?["#text"] as? String ?? artist?["name"] as? String ?? track?["artist"] as? String, avatarURL: avatar)
+        var friend = FriendActivity(name: name, track: nil, artist: nil, avatarURL: avatar)
+        if let track { friend.apply(recentTrack: track) }
+        return friend
+    }
+
+    mutating func apply(recentTrack: [String: Any]) {
+        let artist = recentTrack["artist"] as? [String: Any]
+        track = recentTrack["name"] as? String
+        self.artist = artist?["#text"] as? String ?? artist?["name"] as? String ?? recentTrack["artist"] as? String
+        isNowPlaying = (recentTrack["@attr"] as? [String: Any])?["nowplaying"] as? String == "true"
+        let uts = (recentTrack["date"] as? [String: Any])?["uts"] as? String
+        playedAt = uts.flatMap(TimeInterval.init).map(Date.init(timeIntervalSince1970:))
     }
 }
 
@@ -229,7 +240,7 @@ extension LastFMClient {
         var page = 1
         var totalPages = 1
         repeat {
-            let json = try await request(["method": "user.getFriends", "user": username, "recenttracks": "1", "limit": "50", "page": String(page)])
+            let json = try await request(["method": "user.getFriends", "user": username, "limit": "50", "page": String(page)])
             guard let root = json["friends"] as? [String: Any] else {
                 throw NSError(domain: "Friends", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected friends response."])
             }
@@ -241,7 +252,33 @@ extension LastFMClient {
             try Task.checkCancellation()
         } while page <= totalPages
         var seen = Set<String>()
-        return result.filter { seen.insert($0.name).inserted }
+        var friends = result.filter { seen.insert($0.name).inserted }
+        let recent = await recentTracks(for: friends.map(\.name))
+        for index in friends.indices {
+            if let track = recent[friends[index].name] { friends[index].apply(recentTrack: track) }
+        }
+        return friends
+    }
+
+    private func recentTracks(for names: [String]) async -> [String: [String: Any]] {
+        var result: [String: [String: Any]] = [:]
+        await withTaskGroup(of: (String, [String: Any]?).self) { group in
+            var pending = names.makeIterator()
+            func addNext() {
+                guard let name = pending.next() else { return }
+                group.addTask {
+                    let json = try? await self.request(["method": "user.getRecentTracks", "user": name, "limit": "1"])
+                    let tracks = (json?["recenttracks"] as? [String: Any])?["track"]
+                    return (name, (tracks as? [[String: Any]])?.first ?? tracks as? [String: Any])
+                }
+            }
+            for _ in 0..<6 { addNext() }
+            for await (name, track) in group {
+                if let track { result[name] = track }
+                addNext()
+            }
+        }
+        return result
     }
 
     func profileChart(_ kind: ChartKind, period: ChartPeriod, limit: Int = 10) async throws -> [ProfileChartEntry] {
