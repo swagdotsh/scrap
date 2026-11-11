@@ -32,15 +32,33 @@ This is the `windows-app-sdk` branch. For the macOS app, see [`main`](https://gi
 - Album artwork, with optional animated covers on Now Playing
 - Tag the current track or artist on last.fm
 
+### Reports
+
+- Weekly (Saturday to Friday), monthly and yearly reports: scrobbles vs the previous period, top artist, album and track, top tags, a listening clock showing the hours you listen most, and new artists, albums and tracks you discovered
+- Monthly and yearly reports add the day you scrobbled the most; yearly reports add a month-by-month chart and the month you scrobbled the most, each with its top artist, track and album
+- Open any past week, month or year from a calendar, or step through them with the arrows; your last 4 weekly reports are saved on your PC
+- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time), plus monthly and yearly reports on the first Friday after each month or year
+
 ### Your last.fm account
 
 - Recent scrobbles
 - Your profile with top artists, albums & tracks
 - Friends' recent listening activity
 
+### Discord Rich Presence
+
+- Show what you're listening to on your Discord profile while scrap and the Discord desktop app are open
+- Your status reads "Listening to *artist*" (or the track or app name), with the track, artist and album, the cover, and a live time bar
+- Customizable text for each line using `{title}`, `{artist}`, `{album}` and `{service}`, e.g. "by {artist}" or "on {album}"
+- Covers from last.fm (animated covers are frozen to a still frame) or from Apple Music, including custom artwork
+- Up to two buttons: Apple Music, Spotify, song.link, or the last.fm track, artist or album page
+- Choose whether to hide your activity or keep it when music is paused
+- Live preview in **Settings → Discord**
+
 ### Desktop
 
-- Lives in the notification area (system tray) when you close the window
+- Lives in the notification area (system tray) when you close the window, with a full-colour icon while you're scrobbling and a grey icon otherwise
+- Right-click the tray icon to turn Discord Rich Presence on or off
 - Open on login, with the window staying in the tray
 - System, Light or Dark appearance
 - In-app updates: daily checks, verified downloads and installation, plus optional automatic installation
@@ -50,6 +68,7 @@ This is the `windows-app-sdk` branch. For the macOS app, see [`main`](https://gi
 - **Windows 10 21H2 or above**, 64-bit (x64)
 - **Apple Music for Windows** from the Microsoft Store (works whether you're subscribed or not)
 - A **last.fm account**
+- The **Discord desktop app** (optional, for Rich Presence)
 
 Spotify support is coming soon.
 
@@ -66,6 +85,10 @@ That's it. Keep scrap running while you listen. Closing the window leaves it run
 
 > [!IMPORTANT]
 > Keep the whole extracted folder together. scrap is an unpackaged app with no installer, and `Scrap.exe` needs the files next to it.
+
+### Discord Rich Presence
+
+Turn it on in **Settings → Discord** (or right-click the tray icon → **Discord Rich Presence**) and keep the Discord desktop app open. Buttons only appear to other people, not on your own profile.
 
 ### Open on login
 
@@ -94,7 +117,10 @@ If `dotnet --version` does not show version 10, install the SDK with `winget ins
 ```env
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
+DISCORD_APPLICATION_ID=your_discord_application_id
 ```
+
+`DISCORD_APPLICATION_ID` is only needed for Discord Rich Presence. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and copy its **Application ID**. The application's name is shown on Discord as the "Listening to …" heading of your activity, so name it what you want people to see (for example "Apple Music"). Without it, scrap works normally and the Discord tab says it isn't set up.
 
 Build, test, and publish the app:
 
@@ -129,6 +155,13 @@ Keep the entire `windows/publish` folder together if you move the app.
 ### Closed the window, but scrap is still running
 
 That's normal. Click the scrap icon in the notification area, on the right of the taskbar (you may need to click **^** to see it). To fully close it, right-click the icon and choose **Quit Scrap**.
+
+### Discord isn't showing what I'm listening to
+
+- Make sure it's turned on in **Settings → Discord**; the status line there says whether scrap is connected
+- Use the Discord desktop app; the web version in a browser doesn't support Rich Presence
+- If your activity is set to hide while paused, press play
+- In Discord, make sure **Settings → Activity Privacy → Share your detected activities with others** is on
 
 ### Windows protected your PC
 

@@ -57,7 +57,7 @@
                     <TextBlock Text="Notifications" FontWeight="SemiBold"/>
                     <StackPanel Spacing="2"><CheckBox x:Name="MilestonesCheck" Content="Milestones" IsChecked="True" Click="NotificationPreferencesChanged"/><TextBlock x:Name="MilestonesNote" Margin="28,0,0,0" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
                     <StackPanel Spacing="2"><CheckBox x:Name="NewArtistsCheck" Content="New artist discovered" IsChecked="True" Click="NotificationPreferencesChanged"/><TextBlock Text="When you scrobble an artist for the first time." Margin="28,0,0,0" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
-                    <StackPanel Spacing="2"><CheckBox x:Name="WeeklyReportCheck" Content="Weekly report" IsChecked="True" Click="NotificationPreferencesChanged"/><TextBlock x:Name="WeeklyReportNote" Margin="28,0,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                    <StackPanel Spacing="2"><CheckBox x:Name="WeeklyReportCheck" Content="Reports" IsChecked="True" Click="NotificationPreferencesChanged"/><TextBlock x:Name="WeeklyReportNote" Margin="28,0,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
                     <TextBlock Text="Appearance" FontWeight="SemiBold"/><ComboBox x:Name="ThemeChoice" SelectionChanged="ThemeChanged"><ComboBoxItem Content="System"/><ComboBoxItem Content="Light"/><ComboBoxItem Content="Dark"/></ComboBox>
                     <TextBlock Text="Scrobble metadata cleanup" FontWeight="SemiBold"/>
                     <CheckBox x:Name="FirstArtistCheck" Content="Use the first artist only" Click="CleanupChanged"/>
@@ -88,6 +88,46 @@
                 </TabViewItem>
                 <TabViewItem Header="Services">
                   <StackPanel Spacing="10" Margin="12"><TextBlock Text="Spotify" FontSize="20" FontWeight="SemiBold"/><TextBlock Text="Spotify support is coming soon." TextWrapping="Wrap"/></StackPanel>
+                </TabViewItem>
+                <TabViewItem Header="Discord">
+                  <Grid ColumnSpacing="16" Margin="8,12">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/></Grid.ColumnDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Spacing="12" Padding="0,0,16,0">
+                      <StackPanel Spacing="4">
+                        <ToggleSwitch x:Name="DiscordSwitch" Header="Show what I'm listening to on Discord" OnContent="On" OffContent="Off"/>
+                        <Grid ColumnSpacing="8"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions><Ellipse x:Name="DiscordStatusDot" Width="8" Height="8" Margin="0,5,0,0" VerticalAlignment="Top"/><TextBlock x:Name="DiscordStatusText" Grid.Column="1" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></Grid>
+                      </StackPanel>
+                      <TextBlock Text="Text" FontWeight="SemiBold"/>
+                      <Grid ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                        <TextBlock Text="Track line" VerticalAlignment="Center"/><TextBox x:Name="DiscordDetailsBox" Grid.Column="1" PlaceholderText="Hidden" AutomationProperties.Name="Track line"/><DropDownButton x:Name="DiscordDetailsPresets" Grid.Column="2" AutomationProperties.Name="Track line presets"><FontIcon Glyph="&#xE8FD;" FontSize="14"/></DropDownButton>
+                        <TextBlock Grid.Row="1" Text="Artist line" VerticalAlignment="Center"/><TextBox x:Name="DiscordStateBox" Grid.Row="1" Grid.Column="1" PlaceholderText="Hidden" AutomationProperties.Name="Artist line"/><DropDownButton x:Name="DiscordStatePresets" Grid.Row="1" Grid.Column="2" AutomationProperties.Name="Artist line presets"><FontIcon Glyph="&#xE8FD;" FontSize="14"/></DropDownButton>
+                        <TextBlock Grid.Row="2" Text="Album line" VerticalAlignment="Center"/><TextBox x:Name="DiscordAlbumBox" Grid.Row="2" Grid.Column="1" PlaceholderText="Hidden" AutomationProperties.Name="Album line"/><DropDownButton x:Name="DiscordAlbumPresets" Grid.Row="2" Grid.Column="2" AutomationProperties.Name="Album line presets"><FontIcon Glyph="&#xE8FD;" FontSize="14"/></DropDownButton>
+                      </Grid>
+                      <TextBlock Text="Use {title}, {artist}, {album} and {service}. A line is hidden when a token in it is empty, such as a song without an album." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                      <ComboBox x:Name="DiscordStatusChoice" Header="“Listening to …” shows"/>
+                      <TextBlock Text="Display" FontWeight="SemiBold"/>
+                      <CheckBox x:Name="DiscordCoverCheck" Content="Show the album cover"/>
+                      <StackPanel x:Name="DiscordCoverOptions" Spacing="4" Margin="28,0,0,0">
+                        <ComboBox x:Name="DiscordCoverChoice" Header="Cover from"><ComboBoxItem Content="last.fm"/><ComboBoxItem Content="Apple Music (your artwork)"/></ComboBox>
+                        <TextBlock x:Name="DiscordCoverNote" Text="Uses the artwork Apple Music shows, including custom covers. Discord can only show covers from a web link, so the artwork is uploaded to litterbox.catbox.moe, where it's public to anyone with the link and expires after 72 hours. Falls back to last.fm when a song has no artwork." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                      </StackPanel>
+                      <CheckBox x:Name="DiscordTimeCheck" Content="Show the time bar"/>
+                      <CheckBox x:Name="DiscordLinksCheck" Content="Link the track, artist and album to last.fm"/>
+                      <CheckBox x:Name="DiscordCleanupCheck" Content="Use the scrobble metadata cleanup options from General"/>
+                      <ComboBox x:Name="DiscordPausedChoice" Header="When paused"><ComboBoxItem Content="Hide activity"/><ComboBoxItem Content="Keep it, without the time bar"/></ComboBox>
+                      <TextBlock Text="Buttons" FontWeight="SemiBold"/>
+                      <Grid ColumnSpacing="8" RowSpacing="8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                        <ComboBox x:Name="DiscordButton1Choice" Header="First button" HorizontalAlignment="Stretch"/><TextBox x:Name="DiscordButton1Label" Grid.Column="1" Header="Label" MaxLength="32" VerticalAlignment="Bottom"/>
+                        <ComboBox x:Name="DiscordButton2Choice" Grid.Row="1" Header="Second button" HorizontalAlignment="Stretch"/><TextBox x:Name="DiscordButton2Label" Grid.Row="1" Grid.Column="1" Header="Label" MaxLength="32" VerticalAlignment="Bottom"/>
+                      </Grid>
+                      <TextBlock Text="Discord doesn't show buttons on your own profile, only to other people. Spotify opens a Spotify search for the song. Apple Music is left out when the song isn't in Apple's catalog, and song.link falls back to last.fm." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel></ScrollViewer>
+                    <StackPanel Grid.Column="1" Spacing="10"><TextBlock Text="Preview" FontWeight="SemiBold"/><StackPanel x:Name="DiscordPreview" Spacing="8"/></StackPanel>
+                  </Grid>
                 </TabViewItem>
                 <TabViewItem Header="Updates">
                   <StackPanel Spacing="12" Margin="12">

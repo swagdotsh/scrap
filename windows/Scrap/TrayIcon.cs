@@ -7,35 +7,60 @@ public sealed class TrayIcon : IDisposable
     private const uint CallbackMessage = 0x8001;
     private readonly nint window;
     private readonly SubclassProc callback;
-    private readonly Action open, quit, settings, requestMenu, tagTrack, tagArtist;
-    private readonly nint icon;
+    private readonly Action open, quit, settings, requestMenu, tagTrack, tagArtist, toggleDiscord;
+    private readonly Func<bool> discordEnabled;
+    private readonly nint icon, idleIcon;
+    private bool scrobbling = true;
     private readonly uint taskbarCreated = RegisterWindowMessage("TaskbarCreated");
     private NotifyIconData data;
     private bool disposed;
     public bool Available { get; private set; }
 
-    public TrayIcon(nint window, Action open, Action quit, Action settings, Action requestMenu, Action tagTrack, Action tagArtist)
+    public TrayIcon(nint window, Action open, Action quit, Action settings, Action requestMenu, Action tagTrack, Action tagArtist,
+        Func<bool> discordEnabled, Action toggleDiscord)
     {
         this.window = window; this.open = open; this.quit = quit;
         this.settings = settings; this.requestMenu = requestMenu; this.tagTrack = tagTrack; this.tagArtist = tagArtist;
+        this.discordEnabled = discordEnabled; this.toggleDiscord = toggleDiscord;
         callback = WindowProc;
-        icon = LoadImage(0, Path.Combine(AppContext.BaseDirectory, "Assets", "Scrap.ico"), 1,
-            GetSystemMetrics(49), GetSystemMetrics(50), 0x10);
+        icon = LoadIcon("Scrap.ico");
         if (icon == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not load the scrap tray icon.");
+        idleIcon = LoadIcon("ScrapIdle.ico");
         data = new NotifyIconData
         {
             Size = (uint)Marshal.SizeOf<NotifyIconData>(), Window = window, Id = 1,
             Flags = 1 | 2 | 4, CallbackMessage = CallbackMessage,
             Icon = icon, Tip = "scrap", Info = "", InfoTitle = ""
         };
-        if (!SetWindowSubclass(window, callback, 1, 0)) { DestroyIcon(icon); throw new Win32Exception("Could not attach the scrap tray icon."); }
+        if (!SetWindowSubclass(window, callback, 1, 0)) { DestroyIcons(); throw new Win32Exception("Could not attach the scrap tray icon."); }
         Available = Shell_NotifyIcon(0, ref data);
         if (!Available)
         {
             RemoveWindowSubclass(window, callback, 1);
-            DestroyIcon(icon);
+            DestroyIcons();
             throw new Win32Exception("Could not create the scrap tray icon.");
         }
+    }
+
+    private static nint LoadIcon(string name) =>
+        LoadImage(0, Path.Combine(AppContext.BaseDirectory, "Assets", name), 1, GetSystemMetrics(49), GetSystemMetrics(50), 0x10);
+
+    private void DestroyIcons()
+    {
+        DestroyIcon(icon);
+        if (idleIcon != 0) DestroyIcon(idleIcon);
+    }
+
+    /// The full-colour icon while a track is being scrobbled; a greyed-out one otherwise.
+    public void SetScrobbling(bool active)
+    {
+        if (disposed || active == scrobbling) return;
+        scrobbling = active;
+        data.Icon = active || idleIcon == 0 ? icon : idleIcon;
+        data.Tip = active ? "scrap, scrobbling" : "scrap, not scrobbling";
+        data.Flags = 2 | 4;
+        if (Available) Shell_NotifyIcon(1, ref data);
+        data.Flags = 1 | 2 | 4;
     }
 
     private nint WindowProc(nint hwnd, uint message, nuint wParam, nint lParam, nuint id, nuint reference)
@@ -84,6 +109,8 @@ public sealed class TrayIcon : IDisposable
             AppendMenu(menu, canTag ? 0u : 1u, 5, "Tag track…");
             AppendMenu(menu, canTag ? 0u : 1u, 6, "Tag artist…");
             AppendMenu(menu, 0x800, 0, "");
+            AppendMenu(menu, discordEnabled() ? 8u : 0u, 10, "Discord Rich Presence");
+            AppendMenu(menu, 0x800, 0, "");
             AppendMenu(menu, 0, 2, "Quit scrap");
             GetCursorPos(out var point);
             SetForegroundWindow(window);
@@ -97,6 +124,7 @@ public sealed class TrayIcon : IDisposable
         else if (selected == 4) toggleLove?.Invoke();
         else if (selected == 5) tagTrack();
         else if (selected == 6) tagArtist();
+        else if (selected == 10) toggleDiscord();
     }
 
     public void Dispose()
@@ -106,7 +134,7 @@ public sealed class TrayIcon : IDisposable
         Shell_NotifyIcon(2, ref data);
         RemoveWindowSubclass(window, callback, 1);
         Available = false;
-        DestroyIcon(icon);
+        DestroyIcons();
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

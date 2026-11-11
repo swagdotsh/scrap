@@ -29,6 +29,7 @@ public static class ReportSchedule
         var zone = Zurich.IsDaylightSavingTime(next) ? "Central European Summer Time" : "Central European Time";
         var mine = TimeZoneInfo.ConvertTime(next, local);
         var time = mine.ToString("t");
-        return $"Every Friday at 16:00 {zone}, which is {(mine.DayOfWeek == DayOfWeek.Friday ? time : mine.ToString("dddd") + " " + time)} for you.";
+        return $"Weekly reports every Friday at 16:00 {zone}, which is {(mine.DayOfWeek == DayOfWeek.Friday ? time : mine.ToString("dddd") + " " + time)} for you. " +
+            "Monthly and yearly reports arrive on the first Friday after the month or year ends.";
     }
 }
