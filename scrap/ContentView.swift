@@ -31,9 +31,16 @@ struct ContentView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage("selectedPage") private var selection: Page = .nowPlaying
     @AppStorage("profileChartPeriod") private var chartPeriod: ChartPeriod = .week
-    @State private var report: WeeklyReport?
-    @State private var reportWeek = WeeklyReport.latestWeek()
-    @State private var reportKey = ""
+    @AppStorage("reportKind") private var reportKind: ReportKind = .week
+    /// A historical period the user picked; nil follows the latest report.
+    @State private var reportPeriod: ReportPeriod?
+    @State private var report: ListeningReport?
+    @State private var sessionReports: [ReportPeriod: ListeningReport] = [:]
+    @State private var reportUser = ""
+    @State private var reportRefresh = 0
+    @State private var reportProgress: (done: Int, total: Int)?
+    @State private var showPeriodPicker = false
+    @State private var accountStart: Date?
     @State private var details: ListeningDetails?
     @State private var recent: [RecentScrobble] = []
     @State private var remoteNowPlaying: RecentScrobble?
@@ -126,7 +133,7 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             details = result
         }
-        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)-\(selection == .profile ? chartPeriod.rawValue : "")") {
+        .task(id: "\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(refreshID)-\(selection == .profile ? chartPeriod.rawValue : "")-\(selection == .reports ? reportTaskID : "")") {
             guard client.canScrobble else {
                 profile = nil; recent = []; remoteNowPlaying = nil; topArtists = []; topAlbums = []; topSongs = []
                 isLoading = false
@@ -135,22 +142,7 @@ struct ContentView: View {
             guard selection != .nowPlaying else { return }
             if selection == .friends { await client.refreshFriends(); return }
             if selection == .reports {
-                reportWeek = WeeklyReport.latestWeek()
-                let key = "\(client.username ?? "")-\(refreshID)"
-                if report?.week != reportWeek || reportKey != key { report = nil }
-                guard report == nil else { return }
-                isLoading = true
-                pageError = nil
-                do {
-                    let result = try await client.weeklyReport(for: reportWeek)
-                    guard !Task.isCancelled else { return }
-                    report = result
-                    reportKey = key
-                } catch {
-                    guard !Task.isCancelled else { return }
-                    pageError = "Couldn’t build your report. \(error.localizedDescription)"
-                }
-                isLoading = false
+                await loadReport()
                 return
             }
             if selection == .scrobbles {
@@ -538,58 +530,183 @@ struct ContentView: View {
         }
     }
 
+    private var shownPeriod: ReportPeriod { reportPeriod ?? .latest(reportKind) }
+    private var reportTaskID: String { "\(shownPeriod.kind.rawValue)-\(Int(shownPeriod.interval.start.timeIntervalSince1970))" }
+    /// last.fm launched in 2002; used until the account's sign-up date is known.
+    private var earliestReportDate: Date { accountStart ?? Date(timeIntervalSince1970: 1_009_843_200) }
+
+    private func loadReport() async {
+        let period = shownPeriod
+        let username = client.username ?? ""
+        let forced = reportRefresh != refreshID
+        if reportUser != username || forced {
+            sessionReports = [:]
+            reportUser = username
+            reportRefresh = refreshID
+        }
+        pageError = nil
+        if let cached = sessionReports[period] { report = cached; return }
+        // Recent weeks are saved on this Mac; a finished one doesn't need rebuilding.
+        report = forced ? nil : ReportStore.load(period, username: username)
+        if let report, report.isFinal { sessionReports[period] = report; return }
+        isLoading = true
+        reportProgress = nil
+        if accountStart == nil { accountStart = try? await client.profile()?.registered }
+        do {
+            let result = try await client.listeningReport(for: period) { done, total in
+                reportProgress = (done, total)
+            }
+            guard !Task.isCancelled else { return }
+            report = result
+            sessionReports[period] = result
+            ReportStore.save(result, username: username)
+        } catch {
+            guard !Task.isCancelled else { return }
+            pageError = "Couldn’t build your report. \(error.localizedDescription)"
+        }
+        isLoading = false
+        reportProgress = nil
+    }
+
+    private func showPeriod(_ period: ReportPeriod) {
+        reportPeriod = period == .latest(period.kind) ? nil : period
+    }
+
     private var reportsPage: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        let period = shownPeriod
+        let latest = ReportPeriod.latest(reportKind)
+        let noun = reportKind.noun
+        return VStack(alignment: .leading, spacing: 16) {
             pageHeader("Reports")
+            Picker("Report", selection: $reportKind) {
+                ForEach(ReportKind.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .onChange(of: reportKind) { _, _ in reportPeriod = nil }
             VStack(alignment: .leading, spacing: 3) {
-                Text(reportWeekTitle).font(.headline)
-                Text("Next report \(WeeklyReport.nextReportDate(after: reportWeek).formatted(.dateTime.weekday(.wide).month().day()))")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if isLoading { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Building your report…").font(.caption).foregroundStyle(.secondary) } }
-            if let pageError { Text(pageError).foregroundStyle(.red) }
-            if let report {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(report.scrobbles.formatted()).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
-                    Text("scrobbles").foregroundStyle(.secondary)
-                    Spacer()
-                    if report.previousScrobbles > 0 {
-                        let change = Double(report.scrobbles - report.previousScrobbles) / Double(report.previousScrobbles)
-                        Label(change.formatted(.percent.precision(.fractionLength(0))), systemImage: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.headline).foregroundStyle(change >= 0 ? .green : .red)
+                HStack(spacing: 6) {
+                    Button { showPeriod(period.previous) } label: { Image(systemName: "chevron.left") }
+                        .disabled(period.previous.interval.end <= earliestReportDate)
+                        .help("Previous \(noun)")
+                    Button { showPeriodPicker = true } label: {
+                        HStack(spacing: 6) {
+                            Text(period.title).font(.headline)
+                            Image(systemName: "calendar").foregroundStyle(.secondary)
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .help("Choose a \(noun)")
+                    .popover(isPresented: $showPeriodPicker, arrowEdge: .bottom) {
+                        ReportPeriodPicker(kind: reportKind, earliest: earliestReportDate, selected: period) { picked in
+                            showPeriod(picked)
+                            showPeriodPicker = false
+                        }
+                    }
+                    Button { showPeriod(period.next) } label: { Image(systemName: "chevron.right") }
+                        .disabled(period == latest)
+                        .help("Next \(noun)")
+                    Spacer()
+                    if period != latest { Button("Latest") { reportPeriod = nil }.controlSize(.small) }
                 }
-                Text("Previous week: \(report.previousScrobbles.formatted())").font(.caption).foregroundStyle(.secondary)
-                Text("Top of the week").font(.subheadline.bold()).padding(.top, 4)
-                if let artist = report.topArtist { reportRow(artist, subtitle: "Top artist", artist: true) }
-                if let album = report.topAlbum { reportRow(album, subtitle: "Top album · \(album.artist)", symbol: "opticaldisc") }
-                if let track = report.topTrack { reportRow(track, subtitle: "Top track · \(track.artist)", symbol: "music.note") }
-                if report.topArtist == nil { Text("No scrobbles this week.").font(.caption).foregroundStyle(.secondary) }
-                discoverySection("New artists", items: report.newArtists, artists: true)
-                discoverySection("New albums", items: report.newAlbums, symbol: "opticaldisc")
-                discoverySection("New tracks", items: report.newTracks, symbol: "music.note")
-                Text("Checks your \(WeeklyReport.discoveryCheckLimit) most-played artists, albums and tracks of the week.")
-                    .font(.caption).foregroundStyle(.secondary)
+                .buttonStyle(.borderless)
+                if period == latest {
+                    Text("Next \(reportKind == .week ? "" : reportKind == .month ? "monthly " : "yearly ")report \(latest.next.releaseDate.formatted(.dateTime.weekday(.wide).month().day()))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
+            if isLoading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(reportProgress.map { $0.total > 1 ? "Building your report… \($0.done) of \($0.total) pages" : "Building your report…" } ?? "Building your report…")
+                        .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                }
+            }
+            if let pageError { Text(pageError).foregroundStyle(.red) }
+            if let report, report.period == period { reportContent(report) }
         }
     }
 
-    private var reportWeekTitle: String {
-        let last = Calendar.current.date(byAdding: .day, value: -1, to: reportWeek.end)!
-        return "\(reportWeek.start.formatted(.dateTime.month().day())) – \(last.formatted(.dateTime.month().day()))"
+    @ViewBuilder private func reportContent(_ report: ListeningReport) -> some View {
+        let noun = report.period.kind.noun
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(report.scrobbles.formatted()).font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
+            Text("scrobbles").foregroundStyle(.secondary)
+            Spacer()
+            if report.previousScrobbles > 0 {
+                let change = Double(report.scrobbles - report.previousScrobbles) / Double(report.previousScrobbles)
+                Label(change.formatted(.percent.precision(.fractionLength(0))), systemImage: change >= 0 ? "arrow.up.right" : "arrow.down.right")
+                    .font(.headline).foregroundStyle(change >= 0 ? .green : .red)
+            }
+        }
+        Text("Previous \(noun): \(report.previousScrobbles.formatted())").font(.caption).foregroundStyle(.secondary)
+        Text("Top of the \(noun)").font(.subheadline.bold()).padding(.top, 4)
+        if let artist = report.topArtist { reportRow(artist, subtitle: "Top artist", artist: true) }
+        if let album = report.topAlbum { reportRow(album, subtitle: "Top album · \(album.artist)", symbol: "opticaldisc") }
+        if let track = report.topTrack { reportRow(track, subtitle: "Top track · \(track.artist)", symbol: "music.note") }
+        if report.topArtist == nil { Text("No scrobbles this \(noun).").font(.caption).foregroundStyle(.secondary) }
+        if report.scrobbles > 0 {
+            if report.period.kind == .year, !report.monthly.isEmpty {
+                Text("Scrobbles by month").font(.subheadline.bold()).padding(.top, 4)
+                MonthlyScrobblesChart(monthly: report.monthly)
+            }
+            if let month = report.busiestMonth {
+                highlightSection("Month you scrobbled the most", title: month.interval.start.formatted(.dateTime.month(.wide)), highlight: month)
+            }
+            if let day = report.busiestDay {
+                highlightSection("Day you scrobbled the most", title: day.interval.start.formatted(.dateTime.weekday(.wide).month().day()), highlight: day)
+            }
+            if let peak = report.peakHour {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Listening clock").font(.subheadline.bold())
+                    Text("You listened the most around \(ListeningClockChart.hourLabel(peak)), with \(report.hourly[peak].formatted()) scrobbles in that hour.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ListeningClockChart(hourly: report.hourly)
+                }
+                .padding(.top, 4)
+            }
+            if !report.topTags.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Top tags").font(.subheadline.bold())
+                    TopTagsList(tags: report.topTags)
+                    Text("Based on the tags of your top artists, weighted by plays.").font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+            }
+        }
+        discoverySection("New artists", items: report.newArtists, noun: noun, artists: true)
+        discoverySection("New albums", items: report.newAlbums, noun: noun, symbol: "opticaldisc")
+        discoverySection("New tracks", items: report.newTracks, noun: noun, symbol: "music.note")
+        Text("Checks your \(ListeningReport.discoveryCheckLimit) most-played artists, albums and tracks of the \(noun).")
+            .font(.caption).foregroundStyle(.secondary)
     }
 
-    private func discoverySection(_ title: String, items: [WeeklyReport.Item], artists: Bool = false, symbol: String = "music.note") -> some View {
+    private func highlightSection(_ heading: String, title: String, highlight: ListeningReport.Highlight) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(heading).font(.subheadline.bold())
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(.headline)
+                Spacer()
+                Text("\(highlight.scrobbles.formatted()) scrobbles").font(.callout).monospacedDigit().foregroundStyle(.secondary)
+            }
+            if let artist = highlight.topArtist { reportRow(artist, subtitle: "Top artist", artist: true) }
+            if let track = highlight.topTrack { reportRow(track, subtitle: "Top track · \(track.artist)", symbol: "music.note") }
+            if let album = highlight.topAlbum { reportRow(album, subtitle: "Top album · \(album.artist)", symbol: "opticaldisc") }
+        }
+        .padding(.top, 4)
+    }
+
+    private func discoverySection(_ title: String, items: [ListeningReport.Item], noun: String, artists: Bool = false, symbol: String = "music.note") -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(items.isEmpty ? title : "\(title) (\(items.count))").font(.subheadline.bold()).padding(.top, 4)
-            if items.isEmpty { Text("Nothing new this week.").font(.caption).foregroundStyle(.secondary) }
+            if items.isEmpty { Text("Nothing new this \(noun).").font(.caption).foregroundStyle(.secondary) }
             ForEach(items) { item in
                 reportRow(item, subtitle: artists ? nil : item.artist, artist: artists, symbol: symbol)
             }
         }
     }
 
-    private func reportRow(_ item: WeeklyReport.Item, subtitle: String?, artist: Bool = false, symbol: String = "music.note") -> some View {
+    private func reportRow(_ item: ListeningReport.Item, subtitle: String?, artist: Bool = false, symbol: String = "music.note") -> some View {
         Link(destination: item.url) {
             HStack(spacing: 10) {
                 if artist { ArtistPortrait(name: item.name, size: 36) }

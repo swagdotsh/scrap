@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Combine
+import CoreImage
 import SwiftUI
 
 @MainActor
@@ -15,11 +16,18 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
     private var sharingPicker: NSSharingServicePicker?
     private var mainWindow: NSWindow?
     private let tagController = TagWindowController()
+    private var subscriptions = Set<AnyCancellable>()
+    private lazy var activeIcon = NSImage(systemSymbolName: "music.note", accessibilityDescription: "scrap, scrobbling")
+    private lazy var idleIcon = Self.outlinedSymbol("music.note", accessibilityDescription: "scrap, not scrobbling")
 
     init(model: AppModel) {
         self.model = model
         super.init()
-        item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "scrap")
+        updateIcon()
+        model.listener.objectWillChange.merge(with: model.client.objectWillChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.updateIcon() }
+            .store(in: &subscriptions)
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -66,6 +74,12 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
             add("Share track", action: #selector(shareTrack), to: menu, enabled: menuTrack != nil)
             add("View on last.fm", action: #selector(viewTrack), to: menu, enabled: menuTrack != nil)
             menu.addItem(.separator())
+            let discordItem = NSMenuItem(title: "Discord Rich Presence", action: #selector(toggleDiscord), keyEquivalent: "")
+            discordItem.target = self
+            discordItem.state = UserDefaults.standard.bool(forKey: DiscordKey.enabled) ? .on : .off
+            menu.addItem(discordItem)
+            let settingsItem = add("Settings…", action: #selector(openSettings), to: menu)
+            if #available(macOS 27.0, *) { settingsItem.preferredImageVisibility = .hidden }
             add("Quit scrap", action: #selector(quit), to: menu)
             item.menu = menu
             button.performClick(nil)
@@ -98,11 +112,46 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
         localClickMonitor = nil
     }
 
-    private func add(_ title: String, action: Selector, to menu: NSMenu, enabled: Bool = true) {
+    @discardableResult
+    private func add(_ title: String, action: Selector, to menu: NSMenu, enabled: Bool = true) -> NSMenuItem {
         let entry = NSMenuItem(title: title, action: action, keyEquivalent: "")
         entry.target = self
         entry.isEnabled = enabled
         menu.addItem(entry)
+        return entry
+    }
+
+    /// Filled note while a track is playing and being scrobbled to a reachable last.fm account; outlined otherwise.
+    private func updateIcon() {
+        let client = model.client
+        let scrobbling = model.listener.isPlaying && model.listener.track != nil && client.canScrobble
+            && !client.scrobblingPaused && client.lastFMReachable == true
+        let icon = scrobbling ? activeIcon : idleIcon
+        if item.button?.image !== icon { item.button?.image = icon }
+    }
+
+    /// SF Symbols has no outlined music note, so trace the filled glyph's edge: erode it and keep only the rim.
+    static func outlinedSymbol(_ name: String, accessibilityDescription: String) -> NSImage? {
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription) else { return nil }
+        let scale: CGFloat = 4
+        let padding: CGFloat = 1
+        let size = NSSize(width: symbol.size.width + padding * 2, height: symbol.size.height + padding * 2)
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
+                                            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return symbol }
+        bitmap.size = size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        symbol.draw(in: NSRect(x: padding, y: padding, width: symbol.size.width, height: symbol.size.height))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let filled = CIImage(bitmapImageRep: bitmap) else { return symbol }
+        let eroded = filled.applyingFilter("CIMorphologyMinimum", parameters: [kCIInputRadiusKey: 1.3 * scale])
+        let rim = filled.applyingFilter("CISourceOutCompositing", parameters: [kCIInputBackgroundImageKey: eroded])
+        guard let cgImage = CIContext().createCGImage(rim, from: filled.extent) else { return symbol }
+        let image = NSImage(cgImage: cgImage, size: size)
+        image.isTemplate = true
+        image.accessibilityDescription = accessibilityDescription
+        return image
     }
 
     private func addInfo(_ title: String, to menu: NSMenu) {
@@ -168,17 +217,24 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
             picker.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
+    @objc private func toggleDiscord() {
+        UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: DiscordKey.enabled), forKey: DiscordKey.enabled)
+    }
+    @objc private func openSettings() {
+        PreferencesController.shared.show(client: model.client, updateChecker: model.updateChecker)
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 }
 
 private enum PreferencesTab: Int {
-    case general, accounts, services, updates
+    case general, accounts, services, discord, updates
 }
 
 @MainActor
 final class PreferencesController: NSObject, ObservableObject, NSToolbarDelegate {
     static let shared = PreferencesController()
     @Published fileprivate var selectedTab: PreferencesTab = .general
+    var discord: DiscordPresence?
     private var window: NSWindow?
     private let tabsIdentifier = NSToolbarItem.Identifier("preferences-tabs")
 
@@ -188,7 +244,7 @@ final class PreferencesController: NSObject, ObservableObject, NSToolbarDelegate
             window.title = "Preferences"
             window.titleVisibility = .hidden
             window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: PreferencesView(client: client, updateChecker: updateChecker, controller: self))
+            window.contentViewController = NSHostingController(rootView: PreferencesView(client: client, updateChecker: updateChecker, controller: self, discord: discord))
             let toolbar = NSToolbar(identifier: "preferences-toolbar")
             toolbar.delegate = self
             toolbar.displayMode = .iconOnly
@@ -211,7 +267,7 @@ final class PreferencesController: NSObject, ObservableObject, NSToolbarDelegate
 
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         guard identifier == tabsIdentifier else { return nil }
-        let control = NSSegmentedControl(labels: ["General", "last.fm Accounts", "Services", "Updates"], trackingMode: .selectOne, target: self, action: #selector(selectTab(_:)))
+        let control = NSSegmentedControl(labels: ["General", "last.fm Accounts", "Services", "Discord", "Updates"], trackingMode: .selectOne, target: self, action: #selector(selectTab(_:)))
         control.selectedSegment = selectedTab.rawValue
         control.sizeToFit()
         let item = NSToolbarItem(itemIdentifier: identifier)
@@ -235,6 +291,7 @@ private struct PreferencesView: View {
     @ObservedObject var client: LastFMClient
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var controller: PreferencesController
+    let discord: DiscordPresence?
     @StateObject private var loginItem = LoginItemSettings()
     @AppStorage("animatedAlbumCovers") private var animatedAlbumCovers = true
     @AppStorage("prioritizeAnimatedCovers") private var prioritizeAnimatedCovers = false
@@ -263,6 +320,8 @@ private struct PreferencesView: View {
             case .general: generalTab
             case .accounts: accountsTab
             case .services: servicesTab
+            case .discord:
+                if let discord { DiscordSettingsView(presence: discord) }
             case .updates: updatesTab
             }
         }
@@ -309,7 +368,7 @@ private struct PreferencesView: View {
                     Text("When you scrobble an artist for the first time.").font(.caption).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 5) {
-                    Toggle("Weekly report", isOn: $notifyWeeklyReport)
+                    Toggle("Reports", isOn: $notifyWeeklyReport)
                         .onChange(of: notifyWeeklyReport) { _, _ in Task { await Notifier.scheduleWeeklyReports() } }
                     Text(Notifier.reportTimeDescription).font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

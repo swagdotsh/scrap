@@ -41,8 +41,10 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 - Artist biographies, tags & similar artists
 - Artist top albums & tracks
 - Album artwork and links to last.fm
-- Weekly reports (Saturday to Friday): scrobbles vs last week, top artist, album and track, and new artists, albums and tracks you discovered
-- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time)
+- Weekly (Saturday to Friday), monthly and yearly reports: scrobbles vs the previous period, top artist, album and track, top tags, a listening clock showing the hours you listen most, and new artists, albums and tracks you discovered
+- Monthly and yearly reports add the day you scrobbled the most; yearly reports add a month-by-month chart and the month you scrobbled the most, each with its top artist, track and album
+- Open any past week, month or year from a calendar; your last 4 weekly reports are saved on your Mac
+- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time), plus monthly and yearly reports on the first Friday after each month or year
 
 ### Your last.fm account
 
@@ -52,9 +54,21 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 - Love / unlove the currently playing track
 - Tag the current song or artist on last.fm from the macOS menu bar’s right-click menu; view your tags and community tags before applying up to 10 new tags
 
+### Discord Rich Presence
+
+- Show what you're listening to on your Discord profile while scrap and the Discord desktop app are open
+- Your status reads "Listening to *artist*" (or the track or app name), with the track, artist and album, the cover, and a live time bar
+- Customizable text for each line using `{title}`, `{artist}`, `{album}` and `{service}`, e.g. "by {artist}" or "on {album}"
+- Covers from last.fm (animated covers are frozen to a still frame) or from your music app, including custom artwork
+- Up to two buttons: Apple Music, Spotify, song.link, or the last.fm track, artist or album page
+- Choose whether to hide your activity or keep it when music is paused
+- Use the same settings everywhere or separate settings for Apple Music, Spotify and [untitled], or hide your activity for a service entirely
+- Live preview in **Preferences → Discord**
+
 ### Desktop controls
 
-- Menu bar access
+- Menu bar access, with a filled icon while you're scrobbling and an outlined icon otherwise
+- Right-click the menu bar icon to turn Discord Rich Presence on or off, or open Settings
 - Optional Dock icon
 - Open on logon, with scrobbling initialized even when no window opens
 - System, Light, or Dark appearance and adjustable menu bar background opacity in Settings → General
@@ -66,6 +80,7 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 - **Apple silicon or Intel Mac** (universal build means works for both, but mayyy not be supported forever!)
 - **Apple Music or Spotify** for playback
 - A **last.fm account**
+- The **Discord desktop app** (optional, for Rich Presence)
 
 ## Setting Up
 
@@ -81,6 +96,8 @@ That's it. Keep scrap running while you listen.
 To scrobble Spotify, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–last.fm connection.
 
 To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. scrap uses the [untitled] project name as the last.fm album name. [untitled] is off by default.
+
+To show your listening activity on Discord, turn it on in **Preferences → Discord** (or right-click the menu bar icon → **Discord Rich Presence**) and keep the Discord desktop app open. Buttons only appear to other people, not on your own profile.
 
 > [!IMPORTANT]
 > The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings -> Privacy & Security -> Open Anyway** after trying to open it.
@@ -105,7 +122,10 @@ You'll need **Xcode 27** and your own [last.fm API credentials](https://www.last
 ```env
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
+DISCORD_APPLICATION_ID=your_discord_application_id
 ```
+
+   `DISCORD_APPLICATION_ID` is only needed for Discord Rich Presence. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and copy its **Application ID**. The application's name is shown on Discord as the "Listening to …" heading of your activity, so name it what you want people to see (for example "Apple Music"). Without it, scrap works normally and the Discord tab says it isn't set up.
 
 3. Open `scrap.xcodeproj` in Xcode
 4. Select the `scrap` scheme and your Mac as the destination
@@ -138,6 +158,14 @@ The build copies the last.fm app configuration into the app bundle. People using
 That's normal. You can access it from the music-note icon in the menu bar.
 
 To fully close it, choose **Quit scrap** from the menu.
+
+### Discord isn't showing what I'm listening to
+
+- Make sure it's turned on in **Preferences → Discord**; the status line there says whether scrap is connected
+- Use the Discord desktop app; the web version in a browser doesn't support Rich Presence
+- Check that **Show activity while playing from…** is on for the service you're using
+- If your activity is set to hide while paused, press play
+- In Discord, make sure **Settings → Activity Privacy → Share your detected activities with others** is on
 
 ### last.fm app credentials are missing
 

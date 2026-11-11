@@ -1,6 +1,6 @@
 import Foundation
 
-struct PlayingTrack: Equatable, Codable {
+nonisolated struct PlayingTrack: Equatable, Codable {
     let title: String
     let artist: String
     let album: String

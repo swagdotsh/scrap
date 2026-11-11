@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     let updateChecker = UpdateChecker()
     lazy var desktop = DesktopControls(model: self)
     lazy var notifier = Notifier(lastFM: client)
+    lazy var discord = DiscordPresence(client: client)
     private var friendsTimer: Timer?
     private var notifierTimer: Timer?
     private var subscriptions = Set<AnyCancellable>()
@@ -22,6 +23,8 @@ final class AppModel: ObservableObject {
         listener.onUpdate = { [weak self] track, playing, restarted in
             guard let self else { return }
             self.engine.update(track: self.client.canScrobble ? track : nil, isPlaying: playing && !self.client.scrobblingPaused, restarted: restarted)
+            self.discord.update(track: track, source: self.listener.source, isPlaying: playing,
+                                position: self.listener.position, trackID: self.listener.trackID)
         }
         client.$sessionKey.dropFirst().sink { [weak self] _ in
             Task { @MainActor in
@@ -34,6 +37,7 @@ final class AppModel: ObservableObject {
             UserDefaults.standard.set(page, forKey: "selectedPage")
             self?.desktop.showMainWindow()
         }
+        PreferencesController.shared.discord = discord
         listener.start()
         Task { await client.checkConnection(); await client.retryPending(); await client.refreshFriends() }
         Task { [notifier] in
