@@ -266,7 +266,7 @@ final class LastFMClient: ObservableObject {
         pendingCount = queue.count
     }
 
-    private func metadata(_ track: PlayingTrack) -> [String: String] {
+    func metadata(_ track: PlayingTrack) -> [String: String] {
         Self.metadata(
             for: track,
             removeAlbumTypeSuffix: defaults.bool(forKey: DefaultsKey.removeAlbumTypeSuffix),
@@ -279,7 +279,7 @@ final class LastFMClient: ObservableObject {
 
     nonisolated static let defaultPreservedArtistNames = "Earth, Wind & Fire"
 
-    static func removingFeaturedArtists(from title: String) -> String {
+    nonisolated static func removingFeaturedArtists(from title: String) -> String {
         let pattern = #"\s*[(\[](?:feat\.?|ft\.?|featuring|with)\s[^)\]]*[)\]]"#
         let cleaned = title.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
             .trimmingCharacters(in: .whitespaces)

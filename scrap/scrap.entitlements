@@ -7,4 +7,9 @@
 <string>$(PRODUCT_BUNDLE_IDENTIFIER)-spks</string>
 <string>$(PRODUCT_BUNDLE_IDENTIFIER)-spki</string>
 </array>
+<key>com.apple.security.temporary-exception.sbpl</key>
+<array>
+<string>(allow file-read-metadata file-read-data (regex #"^/private/var/folders(/[^/]+(/[^/]+(/T(/discord-ipc-[0-9])?)?)?)?$"))</string>
+<string>(allow network-outbound (regex #"^/private/var/folders/[^/]+/[^/]+/T/discord-ipc-[0-9]$"))</string>
+</array>
 </dict></plist>

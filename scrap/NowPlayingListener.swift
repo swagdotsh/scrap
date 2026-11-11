@@ -39,6 +39,9 @@ final class NowPlayingListener: ObservableObject {
     @Published private(set) var isFavorited = false
     @Published private(set) var source: PlaybackService?
     @Published private(set) var errorMessage: String?
+    /// Playback position in seconds and the player's track ID. Not published, since they change every second.
+    private(set) var position: TimeInterval = 0
+    private(set) var trackID: String?
     var onAppleMusicFavorite: ((PlayingTrack) -> Void)?
     var onUpdate: ((PlayingTrack?, Bool, Bool) -> Void)?
     private var timer: Timer?
@@ -87,6 +90,8 @@ final class NowPlayingListener: ObservableObject {
 
         guard let selected else {
             errorMessage = firstError
+            position = 0
+            trackID = nil
             publish(nil, source: nil, playing: false)
             return
         }
@@ -101,6 +106,8 @@ final class NowPlayingListener: ObservableObject {
         let changed = selected.source != source || (previousID != nil && selected.id != previousID)
         previousID = selected.id
         previousPosition = selected.position
+        position = selected.position
+        trackID = selected.id
         publish(selected.track, source: selected.source, playing: selected.isPlaying, restarted: repeated || changed, favorited: selected.isFavorited)
     }
 

@@ -33,20 +33,33 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix("weeklyReport-") }
         center.removePendingNotificationRequests(withIdentifiers: pending)
         guard defaults.bool(forKey: "notifyWeeklyReport") else { return }
-        for date in Self.upcomingReportDates(count: 4) {
-            let week = WeeklyReport.latestWeek(now: date)
-            let last = Calendar.current.date(byAdding: .day, value: -1, to: week.end)!
-            let content = UNMutableNotificationContent()
-            content.title = "Your weekly report is ready"
-            content.body = "See your top artist, album and track for \(week.start.formatted(.dateTime.month().day())) – \(last.formatted(.dateTime.month().day()))."
-            content.sound = .default
-            content.userInfo = ["page": "Reports"]
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: "weeklyReport-\(Int(date.timeIntervalSince1970))", content: content, trigger: trigger))
+        for date in Self.upcomingReportDates(count: 6) {
+            let week = ReportPeriod.latest(.week, now: date)
+            await schedule(id: "weeklyReport-\(Int(date.timeIntervalSince1970))", at: date,
+                           title: "Your weekly report is ready",
+                           body: "See your top artist, album and track for \(week.title).")
+            // Monthly and yearly reports come out on the first Friday after the month or year ends.
+            for kind in [ReportKind.month, .year] {
+                let period = ReportPeriod.latest(kind, now: date)
+                guard abs(period.releaseDate.timeIntervalSince(date)) < 60 else { continue }
+                await schedule(id: "weeklyReport-\(kind.rawValue)-\(Int(date.timeIntervalSince1970))", at: date,
+                               title: "Your \(kind == .month ? "monthly" : "yearly") report is ready",
+                               body: "See your listening clock, busiest day and top music for \(period.title).")
+            }
         }
     }
 
-    static func upcomingReportDates(count: Int, after now: Date = .now) -> [Date] {
+    private static func schedule(id: String, at date: Date, title: String, body: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["page": "Reports"]
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
+        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+    }
+
+    nonisolated static func upcomingReportDates(count: Int, after now: Date = .now) -> [Date] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Europe/Zurich")!
         var dates: [Date] = []
@@ -65,7 +78,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let zone = zurich.isDaylightSavingTime(for: next) ? "Central European Summer Time" : "Central European Time"
         let time = next.formatted(date: .omitted, time: .shortened)
         let local = Calendar.current.component(.weekday, from: next) == 6 ? time : "\(next.formatted(.dateTime.weekday(.wide))) \(time)"
-        return "Every Friday at 16:00 \(zone), which is \(local) for you."
+        return "Weekly reports every Friday at 16:00 \(zone), which is \(local) for you. Monthly and yearly reports arrive on the first Friday after the month or year ends."
     }
 
     func checkMilestone() async {

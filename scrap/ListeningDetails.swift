@@ -40,6 +40,7 @@ struct ListenerProfile {
     let playCount: String
     let url: URL?
     var avatarURL: URL? = nil
+    var registered: Date? = nil
 }
 
 extension LastFMClient {
@@ -137,7 +138,8 @@ extension LastFMClient {
         guard let username else { return nil }
         let json = try await request(["method": "user.getInfo", "user": username])
         guard let info = json["user"] as? [String: Any] else { return nil }
-        return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "", playCount: String(Self.count(info["playcount"]) ?? 0), url: (info["url"] as? String).flatMap(URL.init(string:)), avatarURL: Self.cover(info["image"]))
+        let registered = Self.count((info["registered"] as? [String: Any])?["unixtime"]).map { Date(timeIntervalSince1970: TimeInterval($0)) }
+        return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "", playCount: String(Self.count(info["playcount"]) ?? 0), url: (info["url"] as? String).flatMap(URL.init(string:)), avatarURL: Self.cover(info["image"]), registered: registered)
     }
 
     nonisolated static func count(_ value: Any?) -> Int? {
