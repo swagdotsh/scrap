@@ -3,6 +3,44 @@
     <channel>
         <title>scrap</title>
         <item>
+            <title>1.8</title>
+            <pubDate>Wed, 11 Nov 2026 14:01:05 +0100</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.8</link>
+            <sparkle:version>1.8</sparkle:version>
+            <sparkle:shortVersionString>1.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[## Discord Rich Presence
+- Show what you're listening to on your Discord profile while scrap and the Discord desktop app are open. Your status reads **Listening to** *artist*, with the track, artist, album, cover and a live time bar.
+- Turn it on in **Preferences → Discord**, or right-click the menu bar icon and choose **Discord Rich Presence**.
+- Customize each line with `{title}`, `{artist}`, `{album}` and `{service}` (for example "by {artist}" or "on {album}"), or pick a preset. Choose whether "Listening to …" shows the artist line, the track line or the app name.
+- Covers come from last.fm, and animated covers are frozen to a still frame. You can also use your music app's artwork, including custom covers. Apple Music artwork is uploaded to a temporary public image host for this, and falls back to last.fm when it can't be uploaded.
+- Add up to two buttons: **Play on Apple Music**, **Play on Spotify**, song.link, or the last.fm track, artist or album page. Buttons are only visible to other people, not on your own profile.
+- Hide your activity while paused, or keep it without the time bar.
+- Use the same settings everywhere or separate settings for Apple Music, Spotify and [untitled], or hide your activity for a service entirely.
+- A live preview shows how your activity will look as you change settings.
+
+## Reports
+- Added **monthly and yearly reports** alongside weekly ones. Monthly reports come out on the first Friday after the month ends, and yearly reports on the first Friday of the new year.
+- Open any past week, month or year from a calendar, or step through them with the arrows.
+- New **Listening clock** showing the hours you listen most, in your time zone.
+- New **Top tags**, based on the tags of your top artists.
+- Monthly and yearly reports show the **day you scrobbled the most**, with that day's top artist, track and album.
+- Yearly reports show your scrobbles **month by month** and the **month you scrobbled the most**, with its top artist, track and album.
+- Your last 4 weekly reports are saved on your Mac, so they open instantly.
+- Long reports load faster and show their progress.
+
+## Notifications
+- Get notified when your monthly and yearly reports are ready. The **Weekly report** toggle is now **Reports** in **Preferences → General → Notifications** and covers all three.
+
+## Menu bar
+- The menu bar icon is filled while you're scrobbling, and outlined when nothing is playing, scrobbling is paused or last.fm can't be reached.
+- Added **Settings…** to the right-click menu.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.7...v1.8
+]]></description>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.8/scrap-v1.8-universal.zip" length="4852861" type="application/octet-stream" sparkle:edSignature="vDS1fifu6gTp6i2aqGo67aWTrhAxRhB/hPAxJQ/Kw289b/fKHGeCNRpvs2Ltn3hZ9G0EuXJ0NS2iMqf/lklfCg=="/>
+        </item>
+        <item>
             <title>1.7</title>
             <pubDate>Wed, 21 Oct 2026 22:01:02 +0200</pubDate>
             <link>https://github.com/swagdotsh/scrap/releases/tag/v1.7</link>
@@ -60,29 +98,6 @@
 **Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.5...v1.6
 ]]></description>
             <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.6/scrap-v1.6-universal.zip" length="3587834" type="application/octet-stream" sparkle:edSignature="xiPWRdYdOrZ4Nyf2TFrq4m6XJuXTv/kRKOmMMn0XRK5i9t1RVB0JS3GGY7cbc/vTLYYuclaXuaYbucOquaWcBw=="/>
-        </item>
-        <item>
-            <title>1.5</title>
-            <pubDate>Wed, 30 Sep 2026 10:51:43 +0200</pubDate>
-            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.5</link>
-            <sparkle:version>1.5</sparkle:version>
-            <sparkle:shortVersionString>1.5</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <description sparkle:format="plain-text"><![CDATA[scrap 1.5
-
-Now Playing
-- See exactly how artist and album names will be scrobbled when the first-artist or album-suffix cleanup options change them.
-- Listening counts, artist biographies, top songs, and top albums now follow the first-artist setting and refresh when it changes.
-
-Settings
-- Added examples for the first-artist and album-suffix cleanup options.
-- Added an editable “Keep these artist names intact” list, with Earth, Wind & Fire included by default, to protect band names containing commas or ampersands.
-
-Menu bar
-- “Love track” now uses a native checkmark to show whether a track is loved. Select it to toggle love status.
-- “Share track” now opens the native macOS sharing picker with the track’s last.fm link.
-]]></description>
-            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.5/scrap-v1.5-universal.zip" length="3525433" type="application/octet-stream" sparkle:edSignature="wGSlR8LLHJ5gBWn6w1J5jGMJTQBLAvh7gP8KsI1pjgFWAA2O/GFioPjQC204/iVRAndlYmszUf1GUDv2OrXSBg=="/>
         </item>
     </channel>
 </rss>

@@ -1,0 +1,28 @@
+## Discord Rich Presence
+- Show what you're listening to on your Discord profile while scrap and the Discord desktop app are open. Your status reads **Listening to** *artist*, with the track, artist, album, cover and a live time bar.
+- Turn it on in **Preferences → Discord**, or right-click the menu bar icon and choose **Discord Rich Presence**.
+- Customize each line with `{title}`, `{artist}`, `{album}` and `{service}` (for example "by {artist}" or "on {album}"), or pick a preset. Choose whether "Listening to …" shows the artist line, the track line or the app name.
+- Covers come from last.fm, and animated covers are frozen to a still frame. You can also use your music app's artwork, including custom covers. Apple Music artwork is uploaded to a temporary public image host for this, and falls back to last.fm when it can't be uploaded.
+- Add up to two buttons: **Play on Apple Music**, **Play on Spotify**, song.link, or the last.fm track, artist or album page. Buttons are only visible to other people, not on your own profile.
+- Hide your activity while paused, or keep it without the time bar.
+- Use the same settings everywhere or separate settings for Apple Music, Spotify and [untitled], or hide your activity for a service entirely.
+- A live preview shows how your activity will look as you change settings.
+
+## Reports
+- Added **monthly and yearly reports** alongside weekly ones. Monthly reports come out on the first Friday after the month ends, and yearly reports on the first Friday of the new year.
+- Open any past week, month or year from a calendar, or step through them with the arrows.
+- New **Listening clock** showing the hours you listen most, in your time zone.
+- New **Top tags**, based on the tags of your top artists.
+- Monthly and yearly reports show the **day you scrobbled the most**, with that day's top artist, track and album.
+- Yearly reports show your scrobbles **month by month** and the **month you scrobbled the most**, with its top artist, track and album.
+- Your last 4 weekly reports are saved on your Mac, so they open instantly.
+- Long reports load faster and show their progress.
+
+## Notifications
+- Get notified when your monthly and yearly reports are ready. The **Weekly report** toggle is now **Reports** in **Preferences → General → Notifications** and covers all three.
+
+## Menu bar
+- The menu bar icon is filled while you're scrobbling, and outlined when nothing is playing, scrobbling is paused or last.fm can't be reached.
+- Added **Settings…** to the right-click menu.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.7...v1.8
