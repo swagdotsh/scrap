@@ -168,7 +168,7 @@ public sealed class LastFmClient : IDisposable
         if (json["error"] != null)
         {
             if (Text(json["error"]) == "9") SignOut();
-            throw new InvalidOperationException(Text(json["message"]));
+            throw new LastFmException((int)(MusicPresentation.Count(json["error"]) ?? 0), Text(json["message"]));
         }
         response.EnsureSuccessStatusCode();
         return json;

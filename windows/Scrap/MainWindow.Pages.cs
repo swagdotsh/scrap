@@ -8,7 +8,6 @@ namespace Scrap;
 
 public sealed partial class MainWindow
 {
-    private readonly Dictionary<string, WeeklyReport> reports = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ChartGalleryWindow> galleries = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim galleryArtworkLock = new(6, 6);
     private ChartPeriod chartPeriod = ChartPeriod.All[0];
@@ -144,66 +143,6 @@ public sealed partial class MainWindow
     }
 
     private static void AutomationPropertiesName(DependencyObject element, string name) => Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(element, name);
-
-    private async Task LoadReportAsync(string user, Func<bool> active)
-    {
-        var (start, end) = WeeklyReport.LatestWeek(DateTime.Now);
-        var key = user.ToLowerInvariant() + "|" + start.ToString("yyyy-MM-dd");
-        AddText($"{start:MMM d} – {end.AddDays(-1):MMM d}", 20, true);
-        AddText("Next report " + WeeklyReport.NextReportDate(end).ToString("dddd, MMMM d"), secondary: true);
-        if (!reports.TryGetValue(key, out var report))
-        {
-            var loading = AddText("Building your report…", secondary: true);
-            try { report = await WeeklyReport.BuildAsync(Request, user, start, end); }
-            catch (Exception e)
-            {
-                if (!active()) return;
-                ResultsPanel.Children.Remove(loading);
-                AddText("Couldn’t build your report. " + e.Message).Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
-                return;
-            }
-            if (!active()) return;
-            reports[key] = report;
-            ResultsPanel.Children.Remove(loading);
-        }
-        var total = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        total.Children.Add(new TextBlock { Text = report.Scrobbles.ToString("N0"), FontSize = 36, FontWeight = Microsoft.UI.Text.FontWeights.Bold });
-        total.Children.Add(new TextBlock { Text = "scrobbles", VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 8), Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"] });
-        if (report.PreviousScrobbles > 0)
-        {
-            var change = (double)(report.Scrobbles - report.PreviousScrobbles) / report.PreviousScrobbles;
-            total.Children.Add(new TextBlock
-            {
-                Text = (change >= 0 ? "↗ " : "↘ ") + change.ToString("P0"), FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 0, 8),
-                Foreground = (Brush)Application.Current.Resources[change >= 0 ? "SystemFillColorSuccessBrush" : "SystemFillColorCriticalBrush"]
-            });
-        }
-        ResultsPanel.Children.Add(total);
-        AddText($"Previous week: {report.PreviousScrobbles:N0}", secondary: true);
-        AddText("Top of the week", 17, true);
-        if (report.TopArtist is { } artist) ReportRow(artist, "Top artist", true);
-        if (report.TopAlbum is { } album) ReportRow(album, "Top album · " + album.Artist);
-        if (report.TopTrack is { } track) ReportRow(track, "Top track · " + track.Artist);
-        if (report.TopArtist == null) AddText("No scrobbles this week.", secondary: true);
-        DiscoverySection("New artists", report.NewArtists, true);
-        DiscoverySection("New albums", report.NewAlbums);
-        DiscoverySection("New tracks", report.NewTracks);
-        AddText($"Checks your {WeeklyReport.DiscoveryCheckLimit} most-played artists, albums and tracks of the week.", 12, secondary: true);
-    }
-
-    private void DiscoverySection(string title, IReadOnlyList<ReportItem> items, bool artists = false)
-    {
-        AddText(items.Count == 0 ? title : $"{title} ({items.Count})", 17, true);
-        if (items.Count == 0) AddText("Nothing new this week.", secondary: true);
-        foreach (var item in items) ReportRow(item, artists ? null : item.Artist, artists);
-    }
-
-    private void ReportRow(ReportItem item, string? subtitle, bool artist = false)
-    {
-        var plays = $"{item.Count:N0} play{(item.Count == 1 ? "" : "s")}";
-        AddRow(item.Name, string.IsNullOrEmpty(subtitle) ? plays : $"{subtitle}\n{plays}", item.Images, item.Url, portrait: artist ? item.Name : null);
-    }
 
     private TextBlock AddText(string text, double size = 14, bool bold = false, bool secondary = false)
     {

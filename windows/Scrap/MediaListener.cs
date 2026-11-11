@@ -12,6 +12,8 @@ public sealed class MediaListener
     public MetadataCleanup Cleanup { get; set; } = MetadataCleanup.Defaults;
     public string Source { get; private set; } = "Apple Music";
     public Windows.Storage.Streams.IRandomAccessStreamReference? Thumbnail { get; private set; }
+    /// The playback position in seconds, extrapolated from the player's last timeline update while playing.
+    public double Position { get; private set; }
 
     public async Task<(PlayingTrack? Track, bool Playing, bool Restarted)> ReadAsync()
     {
@@ -20,7 +22,7 @@ public sealed class MediaListener
         var session = AppleMusicOnly
             ? sessions.FirstOrDefault(s => s.SourceAppUserModelId.Contains("AppleMusic", StringComparison.OrdinalIgnoreCase))
             : manager.GetCurrentSession();
-        if (session == null) { previousTrack = null; previousSource = null; Thumbnail = null; return (null, false, false); }
+        if (session == null) { previousTrack = null; previousSource = null; Thumbnail = null; Position = 0; return (null, false, false); }
         var metadata = await session.TryGetMediaPropertiesAsync();
         var timeline = session.GetTimelineProperties();
         var duration = (timeline.EndTime - timeline.StartTime).TotalSeconds;
@@ -33,6 +35,9 @@ public sealed class MediaListener
         var same = previousTrack?.Title == track.Title && previousTrack?.Artist == track.Artist && previousTrack?.Album == track.Album;
         var restarted = previousSource != null && previousSource != Source || same && duration > 0 && previousPosition >= duration - 3 && position < 3;
         previousTrack = track; previousPosition = position; previousSource = Source;
-        return (track, session.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing, restarted);
+        var playing = session.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+        var sinceUpdate = (DateTimeOffset.Now - timeline.LastUpdatedTime).TotalSeconds;
+        Position = Math.Max(0, playing && sinceUpdate > 0 && (duration <= 0 || position + sinceUpdate <= duration) ? position + sinceUpdate : position);
+        return (track, playing, restarted);
     }
 }

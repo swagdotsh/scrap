@@ -53,8 +53,15 @@ public sealed class Notifier : IDisposable
         if (last >= latest) return;
         LocalStore.Save("last-weekly-report.json", latest);
         if (last == DateTimeOffset.MinValue || !WeeklyReports || now - latest > TimeSpan.FromDays(1)) return;
-        var week = WeeklyReport.LatestWeek(latest.LocalDateTime);
-        Post("Your weekly report is ready", $"See your top artist, album and track for {week.Start:MMM d} – {week.End.AddDays(-1):MMM d}.", "reports");
+        var today = DateTime.Now;
+        Post("Your weekly report is ready", $"See your top artist, album and track for {ReportPeriod.Latest(ReportKind.Week, latest.LocalDateTime).Title(today)}.", "reports");
+        // Monthly and yearly reports come out on the first Friday after the month or year ends.
+        foreach (var kind in new[] { ReportKind.Month, ReportKind.Year })
+        {
+            var period = ReportPeriod.Latest(kind, latest.LocalDateTime);
+            if ((period.ReleaseDate - latest).Duration() < TimeSpan.FromMinutes(1))
+                Post($"Your {(kind == ReportKind.Month ? "monthly" : "yearly")} report is ready", $"See your listening clock, busiest day and top music for {period.Title(today)}.", "reports");
+        }
     }
 
     public async Task CheckMilestoneAsync()

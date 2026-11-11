@@ -53,7 +53,7 @@ public sealed partial class MainWindow : Window
             presenter.IsMaximizable = false;
         }
         SystemBackdrop = new MicaBackdrop();
-        InstalledVersion.Text = "scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.7.0");
+        InstalledVersion.Text = "scrap " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.8.0");
         engine.Scrobble += client.Enqueue;
         engine.NowPlaying += track => _ = RunAsync(() => client.NowPlayingAsync(track));
         client.AccountChanged += () => { engine.Reset(); revision++; if (ready) DispatcherQueue.TryEnqueue(() => { ClearDetails(); if (page == "playing") _ = RunAsync(LoadPageAsync); }); };
@@ -69,6 +69,7 @@ public sealed partial class MainWindow : Window
             MilestonesNote.Text = $"Every {Notifier.MilestoneStep:N0} scrobbles.";
             WeeklyReportNote.Text = ReportSchedule.Description(DateTimeOffset.UtcNow, TimeZoneInfo.Local);
             chartPeriod = ChartPeriod.From(LocalStore.Load<string?>("profile-chart-period.json", null));
+            reportKind = LocalStore.Load("report-kind.json", ReportKind.Week);
             cleanup = LocalStore.Load("metadata-cleanup.json", MetadataCleanup.Defaults);
             listener.Cleanup = cleanup;
             ScrobblingSwitch.IsOn = LocalStore.Load("scrobbling-enabled.json", true);
@@ -92,6 +93,8 @@ public sealed partial class MainWindow : Window
             RefreshCleanupPreview();
         }
         catch (Exception e) { ShowError(e); }
+        try { InitializeDiscord(); }
+        catch (Exception e) { ShowError(e); }
         try
         {
             startup = WindowsStartup.Create();
@@ -108,7 +111,9 @@ public sealed partial class MainWindow : Window
                 () => DispatcherQueue.TryEnqueue(() => { RestoreFromTray(); Navigation.SelectedItem = Navigation.SettingsItem; }),
                 () => DispatcherQueue.TryEnqueue(() => _ = ShowTrayMenuAsync()),
                 () => DispatcherQueue.TryEnqueue(() => OpenTagEditor("track")),
-                () => DispatcherQueue.TryEnqueue(() => OpenTagEditor("artist")));
+                () => DispatcherQueue.TryEnqueue(() => OpenTagEditor("artist")),
+                () => discord?.Settings.Enabled == true,
+                () => DispatcherQueue.TryEnqueue(ToggleDiscordFromTray));
         }
         catch (Exception e) { ShowError(e); }
         AppWindow.Closing += (_, args) =>
@@ -137,7 +142,7 @@ public sealed partial class MainWindow : Window
         {
             closed = true; timer.Stop(); friendsTimer.Stop(); recentTimer.Stop(); notifierTimer.Stop(); reportTimer.Stop(); updateTimer.Stop(); engine.Suspend();
             foreach (var gallery in galleries.Values) if (!gallery.IsClosed) gallery.Close();
-            notifier?.Dispose(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose();
+            notifier?.Dispose(); discord?.Dispose(); tray?.Dispose(); client.Dispose(); artworkHttp.Dispose();
         };
         UpdateStatus();
         if (DailyUpdateCheck.IsChecked == true) _ = CheckDailyUpdateAsync();
@@ -172,6 +177,9 @@ public sealed partial class MainWindow : Window
             current = sample.Track;
             deviceIsPlaying = sample.Playing;
             engine.Update(client.Connected ? current : null, sample.Playing && !client.Paused && client.Connected, DateTimeOffset.UtcNow, sample.Restarted);
+            discord?.Update(current, sample.Playing, listener.Position, listener.Thumbnail);
+            tray?.SetScrobbling(current != null && sample.Playing && client.Connected && !client.Paused);
+            if (DiscordTabVisible) UpdateDiscordPreviewClock();
             TrackTitle.Text = current == null ? "Nothing playing" : current.OriginalTitle ?? current.Title;
             ArtistName.Text = current == null ? "Play something in Apple Music." : ScrobbleLabel(current.OriginalArtist, current.Artist);
             AlbumName.Text = current == null ? "" : ScrobbleLabel(current.OriginalAlbum, current.Album);
@@ -239,7 +247,15 @@ public sealed partial class MainWindow : Window
 
     private async void SettingsTabChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!ready || SettingsTabs.SelectedItem is not TabViewItem { Header: "last.fm Accounts" }) return;
+        if (!ready) return;
+        if (DiscordTabVisible)
+        {
+            RenderDiscordStatus();
+            RenderDiscordPreview();
+            if (discord != null) await discord.FetchAppNameAsync();
+            return;
+        }
+        if (SettingsTabs.SelectedItem is not TabViewItem { Header: "last.fm Accounts" }) return;
         if (!client.Connected || client.Username == null) { AccountInfo.Text = "Not connected to last.fm"; return; }
         try
         {
@@ -274,12 +290,13 @@ public sealed partial class MainWindow : Window
         SettingsPanel.Visibility = page == "settings" ? Visibility.Visible : Visibility.Collapsed;
         ResultsPanel.Visibility = page is "reports" or "recent" or "profile" or "friends" ? Visibility.Visible : Visibility.Collapsed;
         RefreshButton.Visibility = page == "settings" ? Visibility.Collapsed : Visibility.Visible;
+        if (DiscordTabVisible) { RenderDiscordStatus(); RenderDiscordPreview(); }
         await RunAsync(LoadPageAsync);
     }
 
     private async void Refresh(object sender, RoutedEventArgs e)
     {
-        if (page == "reports") reports.Clear();
+        if (page == "reports") { sessionReports.Clear(); rebuildReport = true; }
         recentSignature = "";
         await RunAsync(LoadPageAsync);
     }

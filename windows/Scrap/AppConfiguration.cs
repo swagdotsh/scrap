@@ -1,6 +1,7 @@
 namespace Scrap;
 
-public sealed record AppConfiguration(string ApiKey, string SharedSecret)
+/// DiscordApplicationId is optional. It's needed for Discord Rich Presence, and its name is shown as "Listening to …" on Discord.
+public sealed record AppConfiguration(string ApiKey, string SharedSecret, string DiscordApplicationId = "")
 {
     public static AppConfiguration Load()
     {
@@ -22,6 +23,6 @@ public sealed record AppConfiguration(string ApiKey, string SharedSecret)
                 value = value[1..^1];
             values[line[..separator].Trim()] = value;
         }
-        return new(values.GetValueOrDefault("LASTFM_API_KEY", ""), values.GetValueOrDefault("LASTFM_SHARED_SECRET", ""));
+        return new(values.GetValueOrDefault("LASTFM_API_KEY", ""), values.GetValueOrDefault("LASTFM_SHARED_SECRET", ""), values.GetValueOrDefault("DISCORD_APPLICATION_ID", ""));
     }
 }
