@@ -82,7 +82,7 @@ struct ProfileView: View {
                 }
             }
             .refreshable { await load() }
-            .task(id: period) { await load() }
+            .task(id: "\(lastFM.username ?? "")|\(period)") { await load() }
         }
     }
 

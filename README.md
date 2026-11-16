@@ -27,20 +27,24 @@ This is the `ios` branch. For the macOS app (and Windows beta), see [`main`](htt
 
 - See how many times you've scrobbled an artist or track
 - Artist biographies, tags, similar artists, top albums & tracks
-- Weekly reports (Saturday to Friday): scrobbles vs last week, top artist, album and track, and new artists, albums and tracks you discovered
+- Weekly (Saturday to Friday), monthly and yearly reports: scrobbles vs the previous period, top artist, album and track, top tags, a listening clock showing the hours you listen most, and new artists, albums and tracks you discovered
+- Monthly and yearly reports add the day you scrobbled the most; yearly reports add a month-by-month chart and the month you scrobbled the most, each with its top artist, track and album
+- Open any past week, month or year from a calendar; your last 4 weekly reports are saved on your iPhone
 - Recent scrobbles and friends' recent listening
+- Artist images from Spotify, saved on your iPhone for up to 24 hours
 
 ### Your last.fm account
 
+- Save up to 5 last.fm accounts and switch between them in **Settings → Accounts**; scrap scrobbles to the selected account
 - Your profile with top artists, albums & tracks for the last 7 days, 30 days, 365 days or all time
 - Top 50 galleries for each
 - Love / unlove the currently playing track
 
 ### iPhone extras
 
-- Home screen widgets: **Top Artist** and **Recent Scrobbles**
+- Home screen widgets: **Top Artist**, **Recent Scrobbles** and **Listening Activity** (a medium widget with a square per day for the last 20 weeks; the bluer a square, the more you scrobbled that day)
 - Lock screen widgets for your top artists
-- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time)
+- Notifications every 5,000 scrobbles, when you discover a new artist, and when your weekly report is ready (Fridays at 16:00 Central European Time), plus monthly and yearly reports on the first Friday after each month or year
 - Animated album covers (opt-in, paused in Low Power Mode and Low Data Mode)
 
 ## How scrobbling works on iPhone
@@ -77,7 +81,11 @@ git switch ios
 ```env
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
+
+   The Spotify values are optional and only used for artist images. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the **Web API** enabled and copy its **Client ID** and **Client secret**. Without them, artists show a placeholder.
 
 3. Open `scrap.xcodeproj` in Xcode
 4. For both the **scrap** and **scrapWidgets** targets, go to **Signing & Capabilities** and pick your team. If you use your own team, change the bundle identifiers (`com.swagrelated.scrap` and `com.swagrelated.scrap.widgets`) and the App Group (`group.com.swagrelated.scrap`) to ones you own, and update the App Group name in `scrap/WidgetSync.swift` and `scrapWidgets/WidgetLastFM.swift` to match.
@@ -102,7 +110,11 @@ This uses the Apple Music API, which needs the **MusicKit** app service. Go to [
 
 ### iPhone Settings
 
-**Settings → Apps → scrap** has the version, links, acknowledgements, the license and a **Sign Out** switch (it signs you out the next time scrap opens).
+**Settings → Apps → scrap** has the version, links, acknowledgements, the license and a **Sign Out** switch (it signs you out of the active account the next time scrap opens, and your next saved account becomes active).
+
+### Multiple accounts
+
+In scrap, open your profile → **Settings → Accounts** and tap **Add Account…**. last.fm asks you to sign in each time, so you can add a different account. Tap an account to switch; swipe it to remove it. Plays found in your library before switching are scrobbled to the account that was active.
 
 > [!CAUTION]
 > Keep `LastFM.env` gitignored. Its contents are included in the app, so don't put personal account credentials in it.

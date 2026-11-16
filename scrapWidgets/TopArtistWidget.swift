@@ -51,7 +51,7 @@ struct TopArtistProvider: AppIntentTimelineProvider {
     func snapshot(for configuration: TopArtistIntent, in context: Context) async -> TopArtistEntry {
         guard context.isPreview else { return await load(configuration.period, family: context.family) }
         var sample = TopArtistEntry.sample
-        sample.artists[0].image = await WidgetLastFM.image(await WidgetLastFM.artistPortraitURL("Summrs"), width: 500)
+        sample.artists[0].image = await WidgetArtistImages.portrait("Summrs", width: 500)
         return sample
     }
 
@@ -78,7 +78,7 @@ struct TopArtistProvider: AppIntentTimelineProvider {
         if let top = entry.artists.first {
             let width: CGFloat = family == .accessoryCircular ? 200 : 500
             if family != .accessoryInline, family != .accessoryRectangular {
-                entry.artists[0].image = await WidgetLastFM.image(await WidgetLastFM.artistPortraitURL(top.name), width: width)
+                entry.artists[0].image = await WidgetArtistImages.portrait(top.name, width: width)
             }
         }
         return entry

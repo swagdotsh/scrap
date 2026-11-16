@@ -32,20 +32,32 @@ final class Notifier: NSObject, ObservableObject, UNUserNotificationCenterDelega
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix("weeklyReport-") }
         center.removePendingNotificationRequests(withIdentifiers: pending)
         guard defaults.bool(forKey: "notifyWeeklyReport") else { return }
-        for date in Self.upcomingReportDates(count: 4) {
-            let week = WeeklyReport.latestWeek(now: date)
-            let last = Calendar.current.date(byAdding: .day, value: -1, to: week.end)!
-            let content = UNMutableNotificationContent()
-            content.title = "Your weekly report is ready"
-            content.body = "See your top artist, album and track for \(week.start.formatted(.dateTime.month().day())) – \(last.formatted(.dateTime.month().day()))."
-            content.sound = .default
-            content.userInfo = ["tab": "reports"]
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: "weeklyReport-\(Int(date.timeIntervalSince1970))", content: content, trigger: trigger))
+        for date in Self.upcomingReportDates(count: 6) {
+            let week = ReportPeriod.latest(.week, now: date)
+            await Self.schedule(id: "weeklyReport-\(Int(date.timeIntervalSince1970))", at: date,
+                                title: "Your weekly report is ready",
+                                body: "See your top artist, album and track for \(week.title).")
+            for kind in [ReportKind.month, .year] {
+                let period = ReportPeriod.latest(kind, now: date)
+                guard abs(period.releaseDate.timeIntervalSince(date)) < 60 else { continue }
+                await Self.schedule(id: "weeklyReport-\(kind.rawValue)-\(Int(date.timeIntervalSince1970))", at: date,
+                                    title: "Your \(kind == .month ? "monthly" : "yearly") report is ready",
+                                    body: "See your listening clock, busiest day and top music for \(period.title).")
+            }
         }
     }
 
-    static func upcomingReportDates(count: Int, after now: Date = .now) -> [Date] {
+    private static func schedule(id: String, at date: Date, title: String, body: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["tab": "reports"]
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
+        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+    }
+
+    nonisolated static func upcomingReportDates(count: Int, after now: Date = .now) -> [Date] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Europe/Zurich")!
         var dates: [Date] = []
@@ -74,18 +86,19 @@ final class Notifier: NSObject, ObservableObject, UNUserNotificationCenterDelega
     }
 
     func didScrobble(_ track: PlayingTrack) {
+        guard let username = lastFM.username else { return }
         let artist = track.artist.lowercased()
-        sessionPlays[artist, default: 0] += 1
-        guard defaults.bool(forKey: "notifyNewArtists"), let username = lastFM.username,
-              checkedArtists.insert(artist).inserted else { return }
+        let accountArtist = "\(username.lowercased())|\(artist)"
+        sessionPlays[accountArtist, default: 0] += 1
+        guard defaults.bool(forKey: "notifyNewArtists"), checkedArtists.insert(accountArtist).inserted else { return }
         var notified = Set(defaults.stringArray(forKey: "notifiedNewArtists") ?? [])
-        guard !notified.contains(artist) else { return }
+        guard !notified.contains(artist), !notified.contains(accountArtist) else { return }
         Task {
             guard let json = try? await lastFM.request(["method": "artist.getInfo", "artist": track.artist, "username": username]),
                   let stats = (json["artist"] as? [String: Any])?["stats"] as? [String: Any],
                   let total = LastFMClient.count(stats["userplaycount"]),
-                  total <= sessionPlays[artist, default: 1] else { return }
-            notified.insert(artist)
+                  total <= sessionPlays[accountArtist, default: 1] else { return }
+            notified.insert(accountArtist)
             defaults.set(Array(notified), forKey: "notifiedNewArtists")
             post(id: "newArtist-\(artist)", title: "New artist discovered",
                  body: "You scrobbled \(track.artist) for the first time.", tab: "reports")

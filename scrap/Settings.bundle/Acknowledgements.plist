@@ -8,9 +8,9 @@
 			<key>Type</key>
 			<string>PSGroupSpecifier</string>
 			<key>Title</key>
-			<string>TheAudioDB</string>
+			<string>Spotify</string>
 			<key>FooterText</key>
-			<string>Artist images are provided by TheAudioDB (theaudiodb.com), a community-built database of music artwork and metadata.</string>
+			<string>Artist images are provided by the Spotify Web API (spotify.com).</string>
 		</dict>
 		<dict>
 			<key>Type</key>

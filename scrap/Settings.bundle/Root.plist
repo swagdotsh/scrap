@@ -10,7 +10,7 @@
 			<key>Title</key>
 			<string>Account</string>
 			<key>FooterText</key>
-			<string>Turn on to sign out of last.fm the next time you open scrap.</string>
+			<string>Turn on to sign out of the active last.fm account the next time you open scrap. Your next saved account becomes active.</string>
 		</dict>
 		<dict>
 			<key>Type</key>

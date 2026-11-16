@@ -70,6 +70,7 @@ struct RecentScrobble: Identifiable {
     let date: Date
     var coverURL: URL? = nil
     var trackURL: URL? = nil
+    var album = ""
 
     var destination: URL {
         if let trackURL { return trackURL }
@@ -84,6 +85,7 @@ struct ListenerProfile {
     let playCount: Int
     let url: URL?
     var avatarURL: URL? = nil
+    var registered: Date? = nil
 }
 
 struct FriendActivity: Identifiable {
@@ -207,13 +209,16 @@ extension LastFMClient {
             let artist = (row["artist"] as? [String: Any])?["#text"] as? String ?? ""
             let coverURL = ArtworkCandidates.urls(row["image"]).first
             let trackURL = MusicLink.parse(row).first?.url
+            let album = (row["album"] as? [String: Any])?["#text"] as? String ?? ""
             if (row["@attr"] as? [String: Any])?["nowplaying"] as? String == "true" {
-                nowPlaying = RecentScrobble(id: "now-playing", title: title, artist: artist, date: .now, coverURL: coverURL, trackURL: trackURL)
+                nowPlaying = RecentScrobble(id: "now-playing", title: title, artist: artist, date: .now, coverURL: coverURL,
+                                            trackURL: trackURL, album: album)
                 return nil
             }
             guard let timestamp = Self.count((row["date"] as? [String: Any])?["uts"]) else { return nil }
             return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist,
-                                  date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: coverURL, trackURL: trackURL)
+                                  date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: coverURL, trackURL: trackURL,
+                                  album: album)
         }
         return (nowPlaying, scrobbles)
     }
@@ -228,10 +233,11 @@ extension LastFMClient {
         guard let username else { return nil }
         let json = try await request(["method": "user.getInfo", "user": username])
         guard let info = json["user"] as? [String: Any] else { return nil }
+        let registered = Self.count((info["registered"] as? [String: Any])?["unixtime"]).map { Date(timeIntervalSince1970: TimeInterval($0)) }
         return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "",
                                playCount: Self.count(info["playcount"]) ?? 0,
                                url: (info["url"] as? String).flatMap(URL.init(string:)),
-                               avatarURL: ArtworkCandidates.urls(info["image"]).first)
+                               avatarURL: ArtworkCandidates.urls(info["image"]).first, registered: registered)
     }
 
     func friends() async throws -> [FriendActivity] {

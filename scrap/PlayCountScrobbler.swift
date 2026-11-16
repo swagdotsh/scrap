@@ -27,7 +27,8 @@ final class PlayCountScrobbler: ObservableObject {
     }
 
     func sync() async {
-        guard authorization == .authorized, lastFM.canScrobble, !lastFM.scrobblingPaused, !isSyncing else { return }
+        guard authorization == .authorized, lastFM.canScrobble, !lastFM.scrobblingPaused, !isSyncing,
+              let account = lastFM.username else { return }
         isSyncing = true
         defer { isSyncing = false }
 
@@ -56,7 +57,7 @@ final class PlayCountScrobbler: ObservableObject {
 
         if let earliest = plays.map(\.startedAt).min() {
             do {
-                plays = try await removingAlreadyScrobbled(plays, since: earliest)
+                plays = try await removingAlreadyScrobbled(plays, since: earliest, account: account)
             } catch {
                 status = "Couldn't check recent scrobbles: \(error.localizedDescription) Will try again."
                 return
@@ -64,7 +65,7 @@ final class PlayCountScrobbler: ObservableObject {
         }
 
         plays.sort { $0.startedAt < $1.startedAt }
-        lastFM.scrobble(plays)
+        lastFM.scrobble(plays, for: account)
         if UserDefaults.standard.bool(forKey: "loveAppleMusicFavorites") {
             Task {
                 for song in playedSongs where await AppleMusicFavorites.isFavorited(storeID: song.storeID) {
@@ -78,10 +79,10 @@ final class PlayCountScrobbler: ObservableObject {
         status = plays.isEmpty ? "No new plays." : "Found \(plays.count) new play\(plays.count == 1 ? "" : "s")."
     }
 
-    private func removingAlreadyScrobbled(_ plays: [(track: PlayingTrack, startedAt: Date)], since earliest: Date) async throws
-        -> [(track: PlayingTrack, startedAt: Date)] {
+    private func removingAlreadyScrobbled(_ plays: [(track: PlayingTrack, startedAt: Date)], since earliest: Date,
+                                          account: String) async throws -> [(track: PlayingTrack, startedAt: Date)] {
         let window: TimeInterval = 15 * 60
-        let recent = try await lastFM.recentScrobbles(since: earliest.addingTimeInterval(-window))
+        let recent = try await lastFM.recentScrobbles(since: earliest.addingTimeInterval(-window), for: account)
         var unmatched = recent
         return plays.filter { play in
             let names = lastFM.scrobbledNames(for: play.track)

@@ -6,5 +6,6 @@ struct ScrapWidgets: WidgetBundle {
     var body: some Widget {
         TopArtistWidget()
         RecentScrobblesWidget()
+        ListeningActivityWidget()
     }
 }

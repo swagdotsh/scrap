@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  scrap
-//
-//  Created by don on 20.10.2026.
-//
-
 import SwiftUI
 import AuthenticationServices
 import MediaPlayer

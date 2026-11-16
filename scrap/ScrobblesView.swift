@@ -88,7 +88,7 @@ struct ScrobblesView: View {
             await lastFM.retryPending()
             await load()
         }
-        .task(id: "\(nowPlaying.track?.title ?? "")|\(lastFM.pendingCount)") {
+        .task(id: "\(lastFM.username ?? "")|\(nowPlaying.track?.title ?? "")|\(lastFM.pendingCount)") {
             while !Task.isCancelled {
                 await load()
                 try? await Task.sleep(for: .seconds(30))

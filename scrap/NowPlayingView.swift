@@ -7,6 +7,8 @@ struct NowPlayingView: View {
     @EnvironmentObject private var nowPlaying: NowPlayingListener
     @State private var details: ListeningDetails?
     @State private var animatedCover: UIImage?
+    @State private var remote: RecentScrobble?
+    @State private var remoteUser: String?
     @AppStorage("animatedAlbumCovers") private var animatedSetting = false
     @AppStorage("removeAlbumTypeSuffix") private var removeAlbumTypeSuffix = false
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
@@ -17,14 +19,47 @@ struct NowPlayingView: View {
 
     private var animatedCovers: Bool { animatedSetting && !conditions.limitsAnimation }
 
+    private var remoteTrack: PlayingTrack? {
+        remote.map { PlayingTrack(title: $0.title, artist: $0.artist, album: $0.album, duration: nil) }
+    }
+
+    private func isThisDevice(_ remote: PlayingTrack, local: PlayingTrack) -> Bool {
+        let names = lastFM.scrobbledNames(for: local)
+        func same(_ a: String, _ b: String) -> Bool { a.caseInsensitiveCompare(b) == .orderedSame }
+        return (same(remote.artist, local.artist) || same(remote.artist, names.artist))
+            && (same(remote.title, local.title) || same(remote.title, names.title))
+    }
+
+    private var shown: (track: PlayingTrack, isRemote: Bool)? {
+        let local = nowPlaying.track
+        if let local, nowPlaying.isPlaying { return (local, false) }
+        if let remoteTrack, !(local.map { isThisDevice(remoteTrack, local: $0) } ?? false) { return (remoteTrack, true) }
+        if let local { return (local, false) }
+        return nil
+    }
+
+    private var shownKey: String {
+        shown.map { "\($0.isRemote)|\($0.track.artist)|\($0.track.title)|\($0.track.album)" } ?? ""
+    }
+
     var body: some View {
         List {
-            if let track = nowPlaying.track {
+            if let (track, isRemote) = shown {
                 Section {
-                    trackCard(track)
+                    trackCard(track, isRemote: isRemote)
                     if let details {
                         summary(details, track: track).font(.subheadline).foregroundStyle(.secondary)
                         if !details.trackTags.isEmpty { TagChips(tags: details.trackTags) }
+                    }
+                } header: {
+                    if isRemote {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Now playing from another device").font(.headline).foregroundStyle(.primary)
+                            Text("Reported from last.fm. This isn't coming from this device.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        .textCase(nil)
+                        .padding(.bottom, 4)
                     }
                 }
                 if let details {
@@ -37,16 +72,24 @@ struct NowPlayingView: View {
             }
         }
         .tint(.primary)
-        .refreshable { await scrobbler.sync(); await lastFM.retryPending() }
-        .task(id: nowPlaying.track) {
+        .refreshable { await scrobbler.sync(); await lastFM.retryPending(); await loadRemote() }
+        .task(id: "\(lastFM.username ?? "")|\(shownKey)") {
             details = nil
-            guard let track = nowPlaying.track else { return }
+            guard let track = shown?.track else { return }
             let result = await lastFM.listeningDetails(for: track)
             if !Task.isCancelled { details = result }
         }
-        .task(id: "\(nowPlaying.track?.artist ?? "")|\(nowPlaying.track?.album ?? "")|\(animatedCovers)") {
+        .task(id: "\(lastFM.username ?? "")|\(nowPlaying.isPlaying)") {
+            if remoteUser != lastFM.username { remote = nil; remoteUser = lastFM.username }
+            guard !nowPlaying.isPlaying else { return }
+            while !Task.isCancelled {
+                await loadRemote()
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        .task(id: "\(shown?.track.artist ?? "")|\(shown?.track.album ?? "")|\(animatedCovers)") {
             animatedCover = nil
-            guard animatedCovers, let track = nowPlaying.track,
+            guard animatedCovers, let track = shown?.track,
                   let url = await lastFM.albumCoverURL(artist: track.artist, album: track.album) else { return }
             let image = await CoverLoader.load(url, animated: true)
             if !Task.isCancelled, CoverLoader.isAnimated(image) { animatedCover = image }
@@ -103,11 +146,23 @@ struct NowPlayingView: View {
         return note
     }
 
-    private func trackCard(_ track: PlayingTrack) -> some View {
+    private func loadRemote() async {
+        let username = lastFM.username
+        guard let result = try? await lastFM.recentScrobbles(limit: 1), !Task.isCancelled,
+              lastFM.username == username else { return }
+        remote = result.nowPlaying
+    }
+
+    private func trackCard(_ track: PlayingTrack, isRemote: Bool) -> some View {
         HStack(spacing: 12) {
             Group {
                 if let animatedCover {
                     AnimatedImageView(image: animatedCover)
+                } else if isRemote {
+                    CoverImage(url: remote?.coverURL) {
+                        Image(systemName: "music.note").foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity).background(.quaternary)
+                    }
                 } else if let image = nowPlaying.artwork {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
@@ -129,7 +184,7 @@ struct NowPlayingView: View {
                         Text(track.album).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
-                if let note = scrobblingAsNote(track) {
+                if !isRemote, let note = scrobblingAsNote(track) {
                     Text(note).font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.top, 2)
                 }
             }

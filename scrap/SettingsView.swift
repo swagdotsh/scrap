@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 import MediaPlayer
 
 struct SettingsView: View {
@@ -19,6 +20,9 @@ struct SettingsView: View {
     @AppStorage("notifyMilestones") private var notifyMilestones = true
     @AppStorage("notifyNewArtists") private var notifyNewArtists = true
     @AppStorage("notifyWeeklyReport") private var notifyWeeklyReport = true
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var accountToRemove: LastFMAccount?
+    @State private var isSwitching = false
 
     var body: some View {
         Form {
@@ -87,7 +91,7 @@ struct SettingsView: View {
                     Text("When you scrobble an artist for the first time.")
                 }
                 Toggle(isOn: $notifyWeeklyReport) {
-                    Text("Weekly report")
+                    Text("Reports")
                     Text(reportTimeDescription)
                 }
                 .onChange(of: notifyWeeklyReport) { Task { await notifier.scheduleWeeklyReports() } }
@@ -125,16 +129,67 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Account") {
-                Text(lastFM.status).foregroundStyle(.secondary)
-                Button("Sign out", role: .destructive) {
-                    lastFM.signOut()
-                    dismiss()
+            Section {
+                ForEach(lastFM.accounts) { account in
+                    let isActive = account.id == lastFM.activeAccountID
+                    Button { Task { await switchAccount(to: account) } } label: {
+                        HStack {
+                            Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                            Text(account.username).foregroundStyle(.primary)
+                            Spacer()
+                            if isActive { Text("Scrobbling").font(.subheadline).foregroundStyle(.secondary) }
+                        }
+                    }
+                    .disabled(lastFM.isBusy || isSwitching)
+                    .accessibilityLabel(isActive ? "\(account.username), active account" : "Switch to \(account.username)")
+                    .swipeActions {
+                        Button("Remove", role: .destructive) { accountToRemove = account }
+                    }
                 }
-                .disabled(lastFM.isBusy || lastFM.isSending)
+                Button("Add Account…") { Task { await addAccount() } }
+                    .disabled(!lastFM.isConfigured || !lastFM.canAddAccount || lastFM.isBusy || isSwitching)
+                Text(lastFM.status).foregroundStyle(.secondary)
+                Button("Sign Out of \(lastFM.username ?? "last.fm")", role: .destructive) {
+                    lastFM.signOut()
+                    if !lastFM.canScrobble { dismiss() }
+                }
+                .disabled(lastFM.username == nil || lastFM.isBusy)
+            } header: {
+                Text("Accounts (\(lastFM.accounts.count) of \(LastFMClient.maxAccounts))")
+            } footer: {
+                Text(lastFM.canAddAccount
+                     ? "scrap scrobbles to the selected account. Swipe an account to remove it. Signing out switches to your next saved account."
+                     : "You've saved \(LastFMClient.maxAccounts) accounts, the most scrap can hold. Swipe one to remove it before adding another.")
+            }
+            .confirmationDialog("Remove \(accountToRemove?.username ?? "this account") from scrap?",
+                                isPresented: Binding(get: { accountToRemove != nil }, set: { if !$0 { accountToRemove = nil } }),
+                                titleVisibility: .visible) {
+                Button("Remove", role: .destructive) {
+                    if let accountToRemove { lastFM.removeAccount(accountToRemove.id) }
+                    accountToRemove = nil
+                }
+            } message: {
+                Text("Its session key is removed from this iPhone's Keychain. You can add it again later.")
             }
         }
         .navigationTitle("Settings")
+    }
+
+    private func switchAccount(to account: LastFMAccount) async {
+        guard account.id != lastFM.activeAccountID, !isSwitching else { return }
+        isSwitching = true
+        defer { isSwitching = false }
+        await scrobbler.sync()
+        lastFM.switchAccount(to: account.id)
+    }
+
+    private func addAccount() async {
+        await scrobbler.sync()
+        guard let url = await lastFM.beginAuth() else { return }
+        let callback = try? await webAuthenticationSession.authenticate(using: url, callbackURLScheme: LastFMClient.authCallbackScheme,
+                                                                        preferredBrowserSession: .ephemeral)
+        await lastFM.completeAuth(callback: callback)
     }
 
     private var reportTimeDescription: String {
@@ -143,6 +198,6 @@ struct SettingsView: View {
         let zone = zurich.isDaylightSavingTime(for: next) ? "Central European Summer Time" : "Central European Time"
         let time = next.formatted(date: .omitted, time: .shortened)
         let local = Calendar.current.component(.weekday, from: next) == 6 ? time : "\(next.formatted(.dateTime.weekday(.wide))) \(time)"
-        return "Every Friday at 16:00 \(zone), which is \(local) for you."
+        return "Weekly reports every Friday at 16:00 \(zone), which is \(local) for you. Monthly and yearly reports arrive on the first Friday after the month or year ends."
     }
 }

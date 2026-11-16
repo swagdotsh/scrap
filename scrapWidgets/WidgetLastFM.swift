@@ -45,17 +45,6 @@ enum WidgetLastFM {
         return image.preparingThumbnail(of: size) ?? image
     }
 
-    static func artistPortraitURL(_ name: String) async -> URL? {
-        var components = URLComponents(string: "https://www.theaudiodb.com/api/v1/json/123/search.php")!
-        components.queryItems = [URLQueryItem(name: "s", value: name)]
-        guard let url = components.url, let (data, _) = try? await URLSession.shared.data(from: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let artists = json["artists"] as? [[String: Any]],
-              let artist = artists.first(where: { ($0["strArtist"] as? String)?.lowercased() == name.lowercased() }),
-              let raw = artist["strArtistThumb"] as? String, let portrait = URL(string: raw), portrait.scheme == "https" else { return nil }
-        return portrait
-    }
-
     static func count(_ value: Any?) -> Int {
         if let value = value as? String { return Int(value) ?? 0 }
         return value as? Int ?? 0
