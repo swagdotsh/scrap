@@ -578,6 +578,10 @@ final class DiscordPresence: ObservableObject {
         return url
     }
 
+    nonisolated static func litterboxFilename(_ jpeg: Data) -> String {
+        "scrap-" + SHA256.hash(data: jpeg).prefix(8).map { String(format: "%02x", $0) }.joined() + ".jpg"
+    }
+
     nonisolated static func litterboxRequest(_ jpeg: Data, boundary: String = UUID().uuidString) -> URLRequest {
         var request = URLRequest(url: URL(string: "https://litterbox.catbox.moe/resources/internals/api.php")!)
         request.httpMethod = "POST"
@@ -587,7 +591,7 @@ final class DiscordPresence: ObservableObject {
         for (name, value) in [("reqtype", "fileupload"), ("time", "72h")] {
             body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
         }
-        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"cover.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"\(litterboxFilename(jpeg))\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
         body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         request.httpBody = body
