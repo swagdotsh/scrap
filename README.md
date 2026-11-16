@@ -53,7 +53,7 @@ This is the `windows-app-sdk` branch. For the macOS app, see [`main`](https://gi
 - Covers from last.fm (animated covers are frozen to a still frame) or from Apple Music, including custom artwork
 - Up to two buttons: Apple Music, Spotify, song.link, or the last.fm track, artist or album page
 - Choose whether to hide your activity or keep it when music is paused
-- Live preview in **Settings → Discord**
+- Live preview in **Settings > Discord**
 
 ### Desktop
 
@@ -77,7 +77,7 @@ Spotify support is coming soon.
 1. Download the latest `Scrap-Windows-…-x64.zip` from [Releases](https://github.com/swagdotsh/scrap/releases) (Windows releases are marked "(Windows)")
 2. Right-click the ZIP and choose **Extract All…**. Put the folder somewhere permanent, like `C:\Users\you\Apps\Scrap`
 3. Open the folder and run `Scrap.exe`
-4. If Windows SmartScreen says it protected your PC, click **More info → Run anyway**. scrap isn't code-signed yet.
+4. If Windows SmartScreen says it protected your PC, click **More info > Run anyway**. scrap isn't code-signed yet.
 5. Open Apple Music and play something
 6. In scrap, choose **Connect Last.fm**, approve access in your browser, then return to scrap and choose **I've approved it**
 
@@ -88,15 +88,15 @@ That's it. Keep scrap running while you listen. Closing the window leaves it run
 
 ### Discord Rich Presence
 
-Turn it on in **Settings → Discord** (or right-click the tray icon → **Discord Rich Presence**) and keep the Discord desktop app open. Buttons only appear to other people, not on your own profile.
+Turn it on in **Settings > Discord** (or right-click the tray icon > **Discord Rich Presence**) and keep the Discord desktop app open. Buttons only appear to other people, not on your own profile.
 
 ### Open on login
 
-Turn on **Settings → General → Open Scrap on login**. scrap starts in the notification area without opening its window.
+Turn on **Settings > General > Open Scrap on login**. scrap starts in the notification area without opening its window.
 
 ### Updates
 
-**Settings → Updates** checks for new Windows releases daily. Turn on **Automatically install verified updates** to have scrap download, verify and install them for you. Updates replace the app folder and keep your settings.
+**Settings > Updates** checks for new Windows releases daily. Turn on **Automatically install verified updates** to have scrap download, verify and install them for you. Updates replace the app folder and keep your settings.
 
 ---
 
@@ -158,14 +158,14 @@ That's normal. Click the scrap icon in the notification area, on the right of th
 
 ### Discord isn't showing what I'm listening to
 
-- Make sure it's turned on in **Settings → Discord**; the status line there says whether scrap is connected
+- Make sure it's turned on in **Settings > Discord**; the status line there says whether scrap is connected
 - Use the Discord desktop app; the web version in a browser doesn't support Rich Presence
 - If your activity is set to hide while paused, press play
-- In Discord, make sure **Settings → Activity Privacy → Share your detected activities with others** is on
+- In Discord, make sure **Settings > Activity Privacy > Share your detected activities with others** is on
 
 ### Windows protected your PC
 
-Click **More info → Run anyway**. This appears because scrap isn't code-signed.
+Click **More info > Run anyway**. This appears because scrap isn't code-signed.
 
 ### Scrap.exe won't open after moving it
 
