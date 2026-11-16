@@ -143,6 +143,39 @@ struct scrapTests {
         #expect(UntitledPlayback.parse("Song\n 0:46 / 2:29 Project · ", isPlaying: true) == nil)
     }
 
+    @Test func untitledNoticeAppearsAfterAnUpdateRemovedAccessUntilFixedOrIgnored() {
+        func decide(_ previous: String?, _ current: String = "2.0", enabled: Bool = true, granted: Bool? = true,
+                    trusted: Bool = false, pending: Bool = false, ignored: Bool = false) -> UntitledAccessNotice.Decision {
+            UntitledAccessNotice.decide(previousBuild: previous, currentBuild: current, enabled: enabled, wasGranted: granted,
+                                        trusted: trusted, pending: pending, ignoredForever: ignored)
+        }
+        let shown = UntitledAccessNotice.Decision(show: true, pending: true)
+        let nothing = UntitledAccessNotice.Decision(show: false, pending: false)
+        #expect(decide("1.9") == shown)
+        #expect(decide(nil, "1.9", granted: nil) == shown)
+        #expect(decide("2.0", pending: true) == shown)
+        #expect(decide("2.0") == nothing)
+        #expect(decide("1.9", granted: false) == nothing)
+        #expect(decide("1.9", trusted: true, pending: true) == nothing)
+        #expect(decide("1.9", enabled: false, pending: true) == nothing)
+        #expect(decide("1.9", ignored: true) == UntitledAccessNotice.Decision(show: false, pending: true))
+    }
+
+    @Test func untitledPlayerBarFromVersion113() {
+        let texts = [" · ", "3 tracks · 6m 33s", "drake classic remix (miphy)", "0:24", " / ", "2:29", "songs from camp star · zekkie"]
+        let playing = UntitledPlayback.parse(barTexts: texts, transportButton: "Pause")
+        #expect(playing?.track.title == "drake classic remix (miphy)")
+        #expect(playing?.track.artist == "zekkie")
+        #expect(playing?.track.album == "songs from camp star")
+        #expect(playing?.track.duration == 149)
+        #expect(playing?.position == 24)
+        #expect(playing?.isPlaying == true)
+        #expect(UntitledPlayback.parse(barTexts: texts, transportButton: "Play")?.isPlaying == false)
+        #expect(UntitledPlayback.parse(barTexts: ["Song", "0:24", "2:29", "Project · zekkie"], transportButton: "Pause")?.track.title == "Song")
+        #expect(UntitledPlayback.parse(barTexts: ["3 tracks · 6m 33s", "Pause"], transportButton: "Pause") == nil)
+        #expect(UntitledPlayback.parse(barTexts: ["Song", "0:24", " / ", "2:29", "Project · "], transportButton: "Pause") == nil)
+    }
+
     @Test func pausesDoNotCountAndRepeatStartsANewScrobble() {
         let engine = ScrobbleEngine()
         let start = Date(timeIntervalSince1970: 1000)
@@ -204,6 +237,30 @@ struct scrapTests {
         #expect(LastFMClient.adding(LastFMAccount(username: "sixth", sessionKey: "6"), to: accounts) == nil)
         #expect(LastFMClient.adding(LastFMAccount(username: "USER3", sessionKey: "new"), to: accounts)?[2].sessionKey == "new")
         #expect(accounts.map(\.username) == ["listener", "user2", "user3", "user4", "user5"])
+    }
+
+    @Test func crashReportsHaveVersionsAndReadableSymbols() throws {
+        let header = CrashReporter.headerText(info: ["CFBundleShortVersionString": "1.9", "CFBundleVersion": "1.9"], os: "Version 27.0")
+        #expect(header.hasPrefix("scrap 1.9 (1.9)\nmacOS Version 27.0\n"))
+        #expect(!header.contains(NSUserName()))
+        let line = "3   scrap   0x0000000104a2c3f8 $s5scrap11ContentViewV4bodyQrvg + 120"
+        let readable = CrashReporter.demangled(line)
+        #expect(readable.contains("scrap.ContentView.body"))
+        #expect(readable.hasPrefix("3   scrap   0x0000000104a2c3f8 "))
+        #expect(CrashReporter.demangled("no symbols here") == "no symbols here")
+    }
+
+    @Test func crashReportLinksToAPrefilledIssue() throws {
+        let report = CrashReport(text: "scrap 1.9 (1.9)\nmacOS 27.0\n\nSignal: SIGTRAP (Swift runtime error)\n\nBacktrace:\n" + String(repeating: "frame\n", count: 3000),
+                                 date: Date())
+        #expect(report.summary == "Signal: SIGTRAP (Swift runtime error)")
+        let url = report.issueURL()
+        let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        #expect(url.absoluteString.hasPrefix("https://github.com/swagdotsh/scrap/issues/new?"))
+        #expect(items.first { $0.name == "title" }?.value == "Crash: Signal: SIGTRAP (Swift runtime error)")
+        let body = try #require(items.first { $0.name == "body" }?.value)
+        #expect(body.contains("report shortened"))
+        #expect(body.count < 6500)
     }
 
     @Test func environmentParserHandlesQuotesAndEquals() {

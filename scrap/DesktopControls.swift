@@ -554,7 +554,7 @@ private struct PreferencesView: View {
                 Toggle("[untitled]", isOn: $scrobbleUntitled)
                     .fixedSize(horizontal: true, vertical: false)
                     .onChange(of: scrobbleUntitled) { _, enabled in
-                        if enabled && !AXIsProcessTrusted() { showUntitledAccessibilityAlert = true }
+                        if enabled && !UntitledPlaybackReader.requestAccess() { showUntitledAccessibilityAlert = true }
                     }
                 Text("Experimental")
                     .font(.caption2)
@@ -565,6 +565,7 @@ private struct PreferencesView: View {
             }
             Text("[untitled] needs Accessibility access. Project names are used as album names.")
                 .font(.caption).foregroundStyle(.secondary)
+            if scrobbleUntitled { UntitledStatusView() }
             Text("If Spotify is already connected to last.fm, enabling it here may create duplicate scrobbles.")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
@@ -579,7 +580,7 @@ private struct PreferencesView: View {
             }
             Button("Later", role: .cancel) { }
         } message: {
-            Text("scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on scrap under Privacy & Security -> Device Control and Data Access.")
+            Text("scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on scrap under Privacy & Security -> Device Control and Data Access. If scrap is already listed and switched on, remove it with − and add it again: macOS forgets the permission when scrap is updated.")
         }
     }
 
@@ -620,5 +621,60 @@ private struct PreferencesView: View {
         let profile = try? await client.profile()
         guard !Task.isCancelled, client.username == username else { return }
         accountProfile = profile
+    }
+}
+
+private struct UntitledStatusView: View {
+    @State private var status: UntitledPlaybackReader.Status?
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(message).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                if status == .needsAccess {
+                    Button("Add scrap in Settings…") { UntitledPlaybackReader.openAccessSettings() }
+                }
+                Button(copied ? "Copied" : "Copy Diagnostics") {
+                    Task {
+                        let text = await UntitledPlaybackReader.diagnostics()
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        copied = true
+                    }
+                }
+            }
+            .controlSize(.small)
+        }
+        .padding(.leading, 20)
+        .task {
+            while !Task.isCancelled {
+                status = UntitledPlaybackReader.status()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private var message: String {
+        switch status {
+        case nil: "Checking [untitled]…"
+        case .needsAccess: "scrap doesn't have Accessibility access. Click Add scrap in Settings…, then drag scrap from the Finder window into the list and switch it on. If scrap is already listed, remove it with − first: macOS forgets the permission when scrap is updated."
+        case .notRunning: "Open [untitled] to scrobble it."
+        case .noPlayer: "[untitled] is open, but scrap can't find what's playing. Play something, or copy the diagnostics and include them in an issue."
+        case .reading(let track, let isPlaying): "\(isPlaying ? "Reading" : "Paused"): \(track.title) – \(track.artist)"
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .reading: .green
+        case .notRunning, nil: .secondary
+        case .noPlayer: .orange
+        case .needsAccess: .red
+        }
     }
 }

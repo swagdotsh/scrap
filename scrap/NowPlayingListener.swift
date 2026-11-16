@@ -115,8 +115,7 @@ final class NowPlayingListener: ObservableObject {
             if !AXIsProcessTrusted() {
                 return (nil, "Add & enable scrap in System Settings -> Privacy & Security -> Device Control and Data Access to scrobble [untitled].")
             }
-            guard let application = NSRunningApplication.runningApplications(withBundleIdentifier: service.bundleID).first,
-                  let playback = UntitledPlaybackReader.read(pid: application.processIdentifier) else { return (nil, nil) }
+            guard let playback = UntitledPlaybackReader.current() else { return (nil, nil) }
             return (Snapshot(source: service, track: playback.track, isPlaying: playback.isPlaying, position: playback.position, id: playback.id), nil)
         }
         let scriptSource: String

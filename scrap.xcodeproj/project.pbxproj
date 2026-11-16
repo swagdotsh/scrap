@@ -5,6 +5,144 @@
 	objectVersion = 77;
 	objects = {
 
+		A01600000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = scrapUntitledHelper.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+		A01600000000000000000002 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = scrapUntitledHelper;
+			sourceTree = "<group>";
+		};
+		A01600000000000000000003 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A01600000000000000000004 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A01600000000000000000010;
+			buildPhases = (
+				A01600000000000000000005 ,
+				A01600000000000000000006 ,
+				A01600000000000000000007 ,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A01600000000000000000002 ,
+				A01600000000000000000003 ,
+			);
+			name = scrapUntitledHelper;
+			packageProductDependencies = (
+			);
+			productName = scrapUntitledHelper;
+			productReference = A01600000000000000000001;
+			productType = "com.apple.product-type.xpc-service";
+		};
+		A01600000000000000000005 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01600000000000000000006 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01600000000000000000007 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01600000000000000000008 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.9;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/scrapUntitledHelper-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "scrap [untitled] helper";
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.swagrelated.scrap.untitled-helper";
+				PRODUCT_NAME = scrapUntitledHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				DEVELOPMENT_TEAM = 53QB8M458U;
+			};
+			name = Debug;
+		};
+		A01600000000000000000009 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.9;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/scrapUntitledHelper-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "scrap [untitled] helper";
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.swagrelated.scrap.untitled-helper";
+				PRODUCT_NAME = scrapUntitledHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+			};
+			name = Release;
+		};
+		A01600000000000000000010 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A01600000000000000000008 ,
+				A01600000000000000000009 ,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A01600000000000000000011 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F66A64B8303493E5001A1CF1;
+			proxyType = 1;
+			remoteGlobalIDString = A01600000000000000000004;
+			remoteInfo = scrapUntitledHelper;
+		};
+		A01600000000000000000012 = {
+			isa = PBXTargetDependency;
+			target = A01600000000000000000004;
+			targetProxy = A01600000000000000000011;
+		};
+		A01600000000000000000013 = {isa = PBXBuildFile; fileRef = A01600000000000000000001; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A01600000000000000000014 = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				A01600000000000000000013 ,
+			);
+			name = "Embed XPC Services";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
 		A01500000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = scrapWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A01500000000000000000002 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -228,6 +366,8 @@
 				F66A64D0303493E6001A1CF1 ,
 				F66A64DA303493E6001A1CF1 ,
 				A01500000000000000000002 ,
+				A01600000000000000000003 ,
+				A01600000000000000000002 ,
 				F66A64C1303493E5001A1CF1 ,
 				F606D2C6304E9C3B006A3B2D ,
 			);
@@ -240,6 +380,7 @@
 				F66A64CD303493E6001A1CF1 ,
 				F66A64D7303493E6001A1CF1 ,
 				A01500000000000000000001 ,
+				A01600000000000000000001 ,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -254,14 +395,17 @@
 				F66A64BE303493E5001A1CF1 ,
 				A01100000000000000000001 ,
 				A01500000000000000000012 ,
+				A01600000000000000000014 ,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				A01500000000000000000011 ,
+				A01600000000000000000012 ,
 			);
 			fileSystemSynchronizedGroups = (
 				F66A64C2303493E5001A1CF1 ,
+				A01600000000000000000003 ,
 			);
 			name = scrap;
 			packageProductDependencies = (
@@ -331,6 +475,9 @@
 					A01500000000000000000003 = {
 						CreatedOnToolsVersion = 27.2;
 					};
+					A01600000000000000000004 = {
+						CreatedOnToolsVersion = 27.2;
+					};
 					F66A64CC303493E6001A1CF1 = {
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = F66A64BF303493E5001A1CF1;
@@ -360,6 +507,7 @@
 				F66A64CC303493E6001A1CF1 ,
 				F66A64D6303493E6001A1CF1 ,
 				A01500000000000000000003 ,
+				A01600000000000000000004 ,
 			);
 		};
 

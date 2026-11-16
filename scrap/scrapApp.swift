@@ -73,6 +73,8 @@ struct scrapApp: App {
                 Link("scrap website", destination: URL(string: "https://scrap.swagrelated.com")!)
                 Link("GitHub repository", destination: URL(string: "https://github.com/swagdotsh/scrap")!)
                 Link("Report an issue", destination: URL(string: "https://github.com/swagdotsh/scrap/issues/new/choose")!)
+                Divider()
+                Button("Show Crash Reports") { CrashReporter.revealReports() }
             }
         }
 
@@ -84,6 +86,7 @@ final class ScrapAppDelegate: NSObject, NSApplicationDelegate {
     lazy var model = AppModel()
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        CrashReporter.start()
         NSWindow.allowsAutomaticWindowTabbing = false
     }
 
@@ -95,6 +98,13 @@ final class ScrapAppDelegate: NSObject, NSApplicationDelegate {
         let loginLaunch = NSAppleEventManager.shared().currentAppleEvent?
             .paramDescriptor(forKeyword: keyAELaunchedAsLogInItem) != nil
         if !loginLaunch { model.desktop.showMainWindow() }
+        if let report = CrashReporter.previousReport {
+            DispatchQueue.main.async { CrashReportWindow.shared.show(report) }
+        }
+        DispatchQueue.main.async { UntitledAccessNotice.checkAfterLaunch() }
+        #if DEBUG
+        Self.triggerTestCrash(ProcessInfo.processInfo.environment["SCRAP_TEST_CRASH"])
+        #endif
         DispatchQueue.main.async {
             guard let menu = NSApplication.shared.mainMenu else { return }
             NSApp.windowsMenu = nil
@@ -116,6 +126,24 @@ final class ScrapAppDelegate: NSObject, NSApplicationDelegate {
             }
         }
     }
+
+    #if DEBUG
+    private static func triggerTestCrash(_ kind: String?) {
+        guard let kind else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            switch kind {
+            case "exception":
+                NSException(name: .invalidArgumentException, reason: "scrap test crash", userInfo: nil).raise()
+            case "memory":
+                let pointer = UnsafeMutablePointer<Int>(bitPattern: 0x10)!
+                pointer.pointee = 1
+            default:
+                let missing: Int? = Int("not a number \(kind)")
+                _ = missing!
+            }
+        }
+    }
+    #endif
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         model.desktop.showMainWindow()
