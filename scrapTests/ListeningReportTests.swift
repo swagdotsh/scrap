@@ -38,7 +38,6 @@ struct ListeningReportTests {
         #expect(release > october.interval.end)
         #expect(release < calendar.date(byAdding: .day, value: 8, to: october.interval.end)!)
 
-        // November 11, 2026: October's report (out Friday, November 6) is the latest; November's isn't out yet.
         #expect(ReportPeriod.latest(.month, now: date(2026, 11, 11)) == october)
         #expect(ReportPeriod.latest(.month, now: date(2026, 11, 2)).interval.start == date(2026, 9, 1, 0))
         #expect(ReportPeriod.latest(.year, now: date(2026, 11, 11)).interval.start == date(2025, 1, 1, 0))

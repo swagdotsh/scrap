@@ -48,6 +48,7 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 
 ### Your last.fm account
 
+- Save up to 5 last.fm accounts and switch between them in **Settings → last.fm Accounts**; scrap scrobbles to the selected account
 - Recent scrobbles
 - Top artists, albums & tracks for the last 7 days, 30 days, 365 days or all time, with a top 50 gallery for each
 - Friends' recent listening activity
@@ -123,9 +124,13 @@ You'll need **Xcode 27** and your own [last.fm API credentials](https://www.last
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
 DISCORD_APPLICATION_ID=your_discord_application_id
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
 
    `DISCORD_APPLICATION_ID` is only needed for Discord Rich Presence. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and copy its **Application ID**. The application's name is shown on Discord as the "Listening to …" heading of your activity, so name it what you want people to see (for example "Apple Music"). Without it, scrap works normally and the Discord tab says it isn't set up.
+
+   `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are only needed for artist images. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the **Web API** enabled and copy its **Client ID** and **Client secret**. Images are saved on your Mac for up to 24 hours. Without them, artists show a placeholder.
 
 3. Open `scrap.xcodeproj` in Xcode
 4. Select the `scrap` scheme and your Mac as the destination

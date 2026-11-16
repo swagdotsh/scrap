@@ -32,7 +32,11 @@ final class AppModel: ObservableObject {
                 await self?.client.checkConnection()
             }
         }.store(in: &subscriptions)
-        client.onScrobbled = { [weak self] in self?.notifier.didScrobble($0) }
+        client.onScrobbled = { [weak self] in
+            self?.notifier.didScrobble($0)
+            WidgetSync.reload()
+        }
+        client.$username.removeDuplicates().sink { WidgetSync.update(username: $0) }.store(in: &subscriptions)
         notifier.onOpenPage = { [weak self] page in
             UserDefaults.standard.set(page, forKey: "selectedPage")
             self?.desktop.showMainWindow()

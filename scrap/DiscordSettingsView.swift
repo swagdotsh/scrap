@@ -10,7 +10,6 @@ struct DiscordSettingsView: View {
     }
 }
 
-/// The settings for one scope: all services, or one service's own settings.
 private struct DiscordSettingsPane: View {
     @ObservedObject var presence: DiscordPresence
     @Binding var scope: PlaybackService?
@@ -37,7 +36,6 @@ private struct DiscordSettingsPane: View {
         self.presence = presence
         _scope = scope
         let service = scope.wrappedValue
-        // A service's fields start out showing the global values until they're changed.
         let global = DiscordPresenceSettings.load()
         func key(_ name: String) -> String { DiscordKey.scoped(name, service) }
         let flagService = service ?? .appleMusic
@@ -221,7 +219,6 @@ private struct DiscordSettingsPane: View {
 
     // MARK: Preview
 
-    /// The current song when it matches the selected scope, otherwise a sample from that service.
     private var liveInfo: DiscordTrackInfo? {
         guard let info = presence.info, scope == nil || info.source == scope else { return nil }
         return info

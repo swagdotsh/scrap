@@ -22,7 +22,6 @@ nonisolated enum ReportKind: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-/// A report's time span, in the user's time zone. Weeks run Saturday to Friday.
 nonisolated struct ReportPeriod: Hashable, Codable {
     let kind: ReportKind
     let interval: DateInterval
@@ -37,15 +36,12 @@ nonisolated struct ReportPeriod: Hashable, Codable {
         ReportPeriod(kind: kind, interval: calendar.dateInterval(of: kind.component, for: date)!)
     }
 
-    /// The newest period whose report is out.
     static func latest(_ kind: ReportKind, now: Date = .now) -> ReportPeriod {
         var period = containing(now, kind: kind)
         while period.releaseDate > now { period = period.previous }
         return period
     }
 
-    /// Weekly reports come out on the week's Friday. Monthly and yearly reports come out on the first
-    /// Friday after the period ends, at the same time as the report notifications.
     var releaseDate: Date {
         switch kind {
         case .week:
@@ -89,13 +85,11 @@ nonisolated struct ListeningReport: Codable {
 
     struct Tag: Identifiable, Codable {
         let name: String
-        /// Relative to the top tag, which is 1.
         let weight: Double
         let url: URL
         var id: String { name }
     }
 
-    /// The busiest day or month in a period, with what was played most then.
     struct Highlight: Codable {
         let interval: DateInterval
         let scrobbles: Int
@@ -114,17 +108,14 @@ nonisolated struct ListeningReport: Codable {
     var newAlbums: [Item] = []
     var newTracks: [Item] = []
     var topTags: [Tag] = []
-    /// Scrobbles per hour of the day (0–23) in the user's time zone.
     var hourly: [Int] = []
     var busiestDay: Highlight?
-    /// Scrobbles per month (January first), for yearly reports.
     var monthly: [Int] = []
     var busiestMonth: Highlight?
     var builtAt = Date()
 
     static let discoveryCheckLimit = 25
 
-    /// Built after the period ended, so it won't change.
     var isFinal: Bool { builtAt >= period.interval.end }
 
     var peakHour: Int? {
@@ -197,7 +188,6 @@ nonisolated extension ListeningReport {
         return months
     }
 
-    /// The day or month with the most scrobbles (the earliest one on a tie) and its top artist, album and track.
     static func busiest(_ plays: [ScrobbledPlay], by component: Calendar.Component,
                         calendar: Calendar = ReportPeriod.calendar) -> Highlight? {
         var groups: [Date: [ScrobbledPlay]] = [:]
@@ -213,7 +203,6 @@ nonisolated extension ListeningReport {
                          topTrack: top.tracks.first.map(trackItem))
     }
 
-    /// Combines the top artists' last.fm tags, weighted by how much each artist was played.
     static func combineTags(_ artistTags: [(plays: Int, artist: String, tags: [(name: String, count: Int)])], limit: Int = 5) -> [Tag] {
         let ignored: Set<String> = ["seen live", "favorites", "favourites", "favorite", "favourite", "albums i own",
                                     "under 2000 listeners", "spotify", "my top artists", "all"]
@@ -261,7 +250,6 @@ extension LastFMClient {
         guard !plays.isEmpty else { return report }
         report.topTags = await topTags(for: Array(artists.prefix(10)))
 
-        // An item is new if all of the user's plays of it happened since the period started.
         let limit = ListeningReport.discoveryCheckLimit
         let since = await chartCounts(since: start)
         report.newArtists = await newEntries(artists.prefix(limit), since: since.artists) { play in
@@ -297,7 +285,6 @@ extension LastFMClient {
         return ListeningReport.combineTags(results.sorted { $0.plays > $1.plays })
     }
 
-    /// Play counts from `start` until now, from last.fm's charts (each capped at 1,000 entries).
     private func chartCounts(since start: Date) async -> (artists: [String: Int], albums: [String: Int], tracks: [String: Int]) {
         guard let username else { return ([:], [:], [:]) }
         let range = ["user": username, "from": String(Int(start.timeIntervalSince1970)), "to": String(Int(Date().timeIntervalSince1970))]
@@ -352,7 +339,6 @@ extension LastFMClient {
         return result
     }
 
-    /// Every scrobble between two dates. Pages are fetched a few at a time so long periods stay quick.
     func scrobbledPlays(from start: Date, to end: Date, progress: ((Int, Int) -> Void)? = nil) async throws -> [ScrobbledPlay] {
         let first = try await recentTracksPage(1, from: start, to: end)
         let total = first.totalPages
@@ -377,7 +363,6 @@ extension LastFMClient {
                 }
             }
         }
-        // New scrobbles can shift pages while they load, so drop any repeats.
         var seen = Set<String>()
         return pages.keys.sorted().flatMap { pages[$0] ?? [] }.filter {
             seen.insert("\(Int($0.date.timeIntervalSince1970))\n\($0.artist)\n\($0.title)").inserted
@@ -405,7 +390,6 @@ extension LastFMClient {
                 }
                 return (plays, totalPages)
             } catch {
-                // Retry rate limits and temporary failures a couple of times before giving up.
                 let code = (error as NSError).domain == "LastFM" ? (error as NSError).code : 0
                 attempt += 1
                 guard attempt < 3, [0, 8, 11, 16, 29].contains(code) else { throw error }
@@ -426,7 +410,6 @@ extension LastFMClient {
 
 // MARK: - Storage
 
-/// Keeps the four most recent weekly reports on disk, per last.fm account.
 enum ReportStore {
     static let keptWeeks = 4
 

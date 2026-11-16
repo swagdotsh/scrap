@@ -3,10 +3,26 @@ import CryptoKit
 import AppKit
 import Combine
 
+nonisolated struct LastFMAccount: Codable, Equatable, Identifiable {
+    var username: String
+    var sessionKey: String
+    var id: String { username.lowercased() }
+}
+
 @MainActor
 final class LastFMClient: ObservableObject {
+    nonisolated static let maxAccounts = 5
+    private static let accountsKey = "lastfm_accounts"
+
     @Published private(set) var sessionKey = KeychainHelper.load(key: "lastfm_session_key")
-    @Published private(set) var username = KeychainHelper.load(key: "lastfm_username")
+    @Published private(set) var username = KeychainHelper.load(key: "lastfm_username") {
+        didSet { updatePendingCount() }
+    }
+    @Published private(set) var accounts: [LastFMAccount] = [] {
+        didSet { updatePendingCount() }
+    }
+    var activeAccountID: String? { username?.lowercased() }
+    var canAddAccount: Bool { accounts.count < Self.maxAccounts }
     @Published private(set) var pendingToken: String?
     @Published private(set) var lastFMReachable: Bool?
     private var checkingConnection = false
@@ -81,31 +97,136 @@ final class LastFMClient: ObservableObject {
         self.defaults = defaults
         if let data = defaults.data(forKey: "pendingScrobbles"),
            let saved = try? JSONDecoder().decode([Submission].self, from: data) { queue = saved }
-        pendingCount = queue.count
+        accounts = Self.loadAccounts()
+        if let sessionKey, let username, !accounts.contains(where: { $0.id == username.lowercased() }),
+           let merged = Self.adding(LastFMAccount(username: username, sessionKey: sessionKey), to: accounts) {
+            accounts = merged
+            try? saveAccounts(merged)
+        }
+        updatePendingCount()
         status = Self.accountStatus(isConfigured: isConfigured, hasSession: sessionKey != nil, username: username)
     }
 
+    nonisolated static func adding(_ account: LastFMAccount, to accounts: [LastFMAccount], limit: Int = maxAccounts) -> [LastFMAccount]? {
+        var accounts = accounts
+        if let index = accounts.firstIndex(where: { $0.id == account.id }) {
+            accounts[index] = account
+            return accounts
+        }
+        guard accounts.count < limit else { return nil }
+        accounts.append(account)
+        return accounts
+    }
+
+    private static func loadAccounts() -> [LastFMAccount] {
+        guard let json = KeychainHelper.load(key: accountsKey),
+              let accounts = try? JSONDecoder().decode([LastFMAccount].self, from: Data(json.utf8)) else { return [] }
+        return accounts
+    }
+
+    private func saveAccounts(_ accounts: [LastFMAccount]) throws {
+        if accounts.isEmpty {
+            try KeychainHelper.delete(key: Self.accountsKey)
+        } else {
+            let data = try JSONEncoder().encode(accounts)
+            try KeychainHelper.save(key: Self.accountsKey, value: String(decoding: data, as: UTF8.self))
+        }
+    }
+
+    func switchAccount(to id: String) {
+        guard !isBusy, let account = accounts.first(where: { $0.id == id }) else { return }
+        guard account.id != activeAccountID || sessionKey == nil else { return }
+        do {
+            try activate(account)
+            status = "Switched to \(account.username)."
+            Task { await retryPending(); await refreshFriends() }
+        } catch {
+            status = "Could not switch accounts: \(error.localizedDescription)"
+        }
+    }
+
     func signOut() {
-        guard !isBusy, !isSending else { return }
+        if let activeAccountID, accounts.contains(where: { $0.id == activeAccountID }) {
+            removeAccount(activeAccountID)
+        } else {
+            guard !isBusy else { return }
+            do {
+                try clearActiveAccount()
+                status = "Signed out. last.fm data removed from Keychain."
+            } catch {
+                status = "Could not finish signing out: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func removeAccount(_ id: String) {
+        guard !isBusy, let account = accounts.first(where: { $0.id == id }) else { return }
+        let remaining = accounts.filter { $0.id != id }
+        do {
+            try saveAccounts(remaining)
+            accounts = remaining
+            if id == activeAccountID {
+                if let next = remaining.first {
+                    try activate(next)
+                    status = "Signed out of \(account.username). Switched to \(next.username)."
+                    Task { await retryPending(); await refreshFriends() }
+                } else {
+                    try clearActiveAccount()
+                    status = "Signed out. last.fm data removed from Keychain."
+                }
+            } else {
+                status = "Removed \(account.username)."
+            }
+        } catch {
+            accounts = Self.loadAccounts()
+            status = "Could not remove \(account.username): \(error.localizedDescription)"
+        }
+    }
+
+    func removeAllAccounts() {
+        guard !isBusy else { return }
+        do {
+            try saveAccounts([])
+            accounts = []
+            try clearActiveAccount()
+            status = "Signed out. All last.fm accounts removed from Keychain."
+        } catch {
+            accounts = Self.loadAccounts()
+            status = "Could not finish removing accounts: \(error.localizedDescription)"
+        }
+    }
+
+    private func activate(_ account: LastFMAccount) throws {
+        try KeychainHelper.save(key: "lastfm_session_key", value: account.sessionKey)
+        try KeychainHelper.save(key: "lastfm_username", value: account.username)
+        resetAccountState()
+        sessionKey = account.sessionKey
+        username = account.username
+    }
+
+    private func clearActiveAccount() throws {
         do {
             try KeychainHelper.delete(key: "lastfm_session_key")
             try KeychainHelper.delete(key: "lastfm_username")
-            sessionKey = nil
-            lovedTracks = [:]
-            lastFMReachable = nil
-            username = nil
-            pendingToken = nil
-            friends = []
-            friendsOwner = nil
-            friendsUpdatedAt = nil
-            friendsAttemptedAt = nil
-            friendsError = nil
-            status = "Signed out. last.fm data removed from Keychain."
         } catch {
             sessionKey = KeychainHelper.load(key: "lastfm_session_key")
             username = KeychainHelper.load(key: "lastfm_username")
-            status = "Could not finish signing out: \(error.localizedDescription)"
+            throw error
         }
+        resetAccountState()
+        sessionKey = nil
+        username = nil
+        pendingToken = nil
+    }
+
+    private func resetAccountState() {
+        lovedTracks = [:]
+        lastFMReachable = nil
+        friends = []
+        friendsOwner = nil
+        friendsUpdatedAt = nil
+        friendsAttemptedAt = nil
+        friendsError = nil
     }
 
     func beginAuth() async {
@@ -131,11 +252,14 @@ final class LastFMClient: ObservableObject {
             let json = try await request(["method": "auth.getSession", "token": pendingToken])
             guard let session = json["session"] as? [String: Any], let key = session["key"] as? String,
                   let user = session["name"] as? String else { throw failure("last.fm returned no session.") }
-            try KeychainHelper.save(key: "lastfm_session_key", value: key)
-            try KeychainHelper.save(key: "lastfm_username", value: user)
-            lovedTracks = [:]
-            sessionKey = key
-            username = user
+            let account = LastFMAccount(username: user, sessionKey: key)
+            guard let updated = Self.adding(account, to: accounts) else {
+                self.pendingToken = nil
+                throw failure("You can save up to \(Self.maxAccounts) last.fm accounts. Remove one in Settings → last.fm Accounts, then add \(user) again.")
+            }
+            try saveAccounts(updated)
+            accounts = updated
+            try activate(account)
             self.pendingToken = nil
             status = "Connected as \(user)."
             await retryPending()
@@ -225,16 +349,26 @@ final class LastFMClient: ObservableObject {
         Task { await retryPending() }
     }
 
+    private func savedSessionKey(for user: String) -> String? {
+        let id = user.lowercased()
+        if id == activeAccountID { return sessionKey }
+        return accounts.first(where: { $0.id == id })?.sessionKey
+    }
+
     func retryPending() async {
-        guard !scrobblingPaused, isConfigured, !isSending, let sessionKey, let username else { return }
+        guard !scrobblingPaused, isConfigured, !isSending else { return }
         isSending = true
         defer { isSending = false }
-        while !scrobblingPaused, let index = queue.firstIndex(where: { $0.username == username }) {
+        var skipped = Set<String>()
+        while !scrobblingPaused, let index = queue.firstIndex(where: {
+            !skipped.contains($0.username.lowercased()) && savedSessionKey(for: $0.username) != nil
+        }) {
             let item = queue[index]
+            guard let itemSessionKey = savedSessionKey(for: item.username) else { break }
             do {
                 var params = metadata(item.track)
                 params["method"] = "track.scrobble"
-                params["sk"] = sessionKey
+                params["sk"] = itemSessionKey
                 params["timestamp"] = String(Int(item.startedAt.timeIntervalSince1970))
                 let json = try await request(params, post: true)
                 guard let result = json["scrobbles"] as? [String: Any],
@@ -242,8 +376,10 @@ final class LastFMClient: ObservableObject {
                     throw failure("Unexpected response. Scrobble kept for retry.")
                 }
                 let accepted = String(describing: attributes["accepted"] ?? "0") == "1"
-                status = accepted ? "Scrobbled \(item.track.title)." : "last.fm ignored \(item.track.title)."
-                if accepted { onScrobbled?(item.track) }
+                let isActive = item.username.lowercased() == activeAccountID
+                let target = isActive ? "" : " to \(item.username)"
+                status = accepted ? "Scrobbled \(item.track.title)\(target)." : "last.fm ignored \(item.track.title)."
+                if accepted, isActive { onScrobbled?(item.track) }
                 queue.remove(at: index)
                 persistQueue()
             } catch {
@@ -255,6 +391,11 @@ final class LastFMClient: ObservableObject {
                     status = "last.fm rejected \(item.track.title): \(error.localizedDescription)"
                     continue
                 }
+                if apiError.domain == "LastFM", apiError.code == 9 {
+                    skipped.insert(item.username.lowercased())
+                    status = "\(error.localizedDescription) Scrobbles for \(item.username) saved; reconnect that account to send them."
+                    continue
+                }
                 status = "\(error.localizedDescription) Scrobble saved; reconnect or use Retry pending."
                 return
             }
@@ -263,7 +404,13 @@ final class LastFMClient: ObservableObject {
 
     private func persistQueue() {
         defaults.set(try? JSONEncoder().encode(queue), forKey: "pendingScrobbles")
-        pendingCount = queue.count
+        updatePendingCount()
+    }
+
+    private func updatePendingCount() {
+        var saved = Set(accounts.map(\.id))
+        if let activeAccountID { saved.insert(activeAccountID) }
+        pendingCount = queue.filter { saved.contains($0.username.lowercased()) }.count
     }
 
     func metadata(_ track: PlayingTrack) -> [String: String] {
@@ -356,7 +503,7 @@ final class LastFMClient: ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw failure("Invalid last.fm response.") }
         if let code = json["error"] as? Int {
-            if code == 9 { sessionKey = nil }
+            if code == 9, let sessionKey, input["sk"] == sessionKey { self.sessionKey = nil }
             throw NSError(domain: "LastFM", code: code, userInfo: [NSLocalizedDescriptionKey: json["message"] as? String ?? "last.fm error \(code)."] )
         }
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw failure("last.fm request failed.") }

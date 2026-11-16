@@ -39,7 +39,6 @@ final class NowPlayingListener: ObservableObject {
     @Published private(set) var isFavorited = false
     @Published private(set) var source: PlaybackService?
     @Published private(set) var errorMessage: String?
-    /// Playback position in seconds and the player's track ID. Not published, since they change every second.
     private(set) var position: TimeInterval = 0
     private(set) var trackID: String?
     var onAppleMusicFavorite: ((PlayingTrack) -> Void)?

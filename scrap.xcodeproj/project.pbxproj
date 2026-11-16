@@ -5,6 +5,148 @@
 	objectVersion = 77;
 	objects = {
 
+		A01500000000000000000001 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = scrapWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A01500000000000000000002 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = scrapWidgets;
+			sourceTree = "<group>";
+		};
+		A01500000000000000000003 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A01500000000000000000009;
+			buildPhases = (
+				A01500000000000000000004 ,
+				A01500000000000000000005 ,
+				A01500000000000000000006 ,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A01500000000000000000002 ,
+			);
+			name = scrapWidgets;
+			packageProductDependencies = (
+			);
+			productName = scrapWidgets;
+			productReference = A01500000000000000000001;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A01500000000000000000004 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01500000000000000000005 = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01500000000000000000006 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A01500000000000000000007 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/scrapWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.9;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/scrapWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = scrap;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				DEVELOPMENT_TEAM = 53QB8M458U;
+				SCRAP_APP_GROUP = "$(TeamIdentifierPrefix)com.swagrelated.scrap";
+			};
+			name = Debug;
+		};
+		A01500000000000000000008 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/scrapWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1.9;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/scrapWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = scrap;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.9;
+				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				SCRAP_APP_GROUP = "";
+			};
+			name = Release;
+		};
+		A01500000000000000000009 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A01500000000000000000007 ,
+				A01500000000000000000008 ,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A01500000000000000000010 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F66A64B8303493E5001A1CF1;
+			proxyType = 1;
+			remoteGlobalIDString = A01500000000000000000003;
+			remoteInfo = scrapWidgets;
+		};
+		A01500000000000000000011 = {
+			isa = PBXTargetDependency;
+			target = A01500000000000000000003;
+			targetProxy = A01500000000000000000010;
+		};
+		A01500000000000000000012 = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/scrapWidgets.appex",
+			);
+			name = "Embed widget (Debug only)";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/PlugIns/scrapWidgets.appex",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  echo \"The widget needs a development team and is only embedded in Debug builds.\"\n  exit 0\nfi\nplugins=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/PlugIns\"\nmkdir -p \"$plugins\"\nrm -rf \"$plugins/scrapWidgets.appex\"\ncp -R \"$BUILT_PRODUCTS_DIR/scrapWidgets.appex\" \"$plugins/\"\n";
+		};
+
 		A01400000000000000000001 = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
@@ -85,6 +227,7 @@
 				F66A64C2303493E5001A1CF1 ,
 				F66A64D0303493E6001A1CF1 ,
 				F66A64DA303493E6001A1CF1 ,
+				A01500000000000000000002 ,
 				F66A64C1303493E5001A1CF1 ,
 				F606D2C6304E9C3B006A3B2D ,
 			);
@@ -96,6 +239,7 @@
 				F66A64C0303493E5001A1CF1 ,
 				F66A64CD303493E6001A1CF1 ,
 				F66A64D7303493E6001A1CF1 ,
+				A01500000000000000000001 ,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -109,10 +253,12 @@
 				F66A64BD303493E5001A1CF1 ,
 				F66A64BE303493E5001A1CF1 ,
 				A01100000000000000000001 ,
+				A01500000000000000000012 ,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A01500000000000000000011 ,
 			);
 			fileSystemSynchronizedGroups = (
 				F66A64C2303493E5001A1CF1 ,
@@ -182,6 +328,9 @@
 					F66A64BF303493E5001A1CF1 = {
 						CreatedOnToolsVersion = 26.6;
 					};
+					A01500000000000000000003 = {
+						CreatedOnToolsVersion = 27.2;
+					};
 					F66A64CC303493E6001A1CF1 = {
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = F66A64BF303493E5001A1CF1;
@@ -210,6 +359,7 @@
 				F66A64BF303493E5001A1CF1 ,
 				F66A64CC303493E6001A1CF1 ,
 				F66A64D6303493E6001A1CF1 ,
+				A01500000000000000000003 ,
 			);
 		};
 
@@ -408,11 +558,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Scrap;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = scrap/scrap.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "scrap/scrap-debug.entitlements";
 				INFOPLIST_FILE = Config/Info.plist;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				DEVELOPMENT_TEAM = 53QB8M458U;
+				SCRAP_APP_GROUP = "$(TeamIdentifierPrefix)com.swagrelated.scrap";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.8;
+				CURRENT_PROJECT_VERSION = 1.9;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APPLE_EVENTS = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -436,7 +588,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -461,8 +613,9 @@
 				CODE_SIGN_ENTITLEMENTS = scrap/scrap.entitlements;
 				INFOPLIST_FILE = Config/Info.plist;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				SCRAP_APP_GROUP = "";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.8;
+				CURRENT_PROJECT_VERSION = 1.9;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APPLE_EVENTS = YES;
 				ENABLE_APP_SANDBOX = YES;
@@ -486,7 +639,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.swagrelated.scrap;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

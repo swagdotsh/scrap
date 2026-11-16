@@ -25,7 +25,11 @@ You need Xcode 27 and your own [last.fm API credentials](https://www.last.fm/api
    ```env
    LASTFM_API_KEY=your_api_key
    LASTFM_SHARED_SECRET=your_shared_secret
+   SPOTIFY_CLIENT_ID=your_spotify_client_id
+   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
    ```
+
+   The Spotify values are optional and only used for artist images.
 
 4. Open `scrap.xcodeproj` in Xcode.
 5. Select the `scrap` scheme and your Mac as the destination, then build and run.

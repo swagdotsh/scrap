@@ -38,7 +38,6 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             await schedule(id: "weeklyReport-\(Int(date.timeIntervalSince1970))", at: date,
                            title: "Your weekly report is ready",
                            body: "See your top artist, album and track for \(week.title).")
-            // Monthly and yearly reports come out on the first Friday after the month or year ends.
             for kind in [ReportKind.month, .year] {
                 let period = ReportPeriod.latest(kind, now: date)
                 guard abs(period.releaseDate.timeIntervalSince(date)) < 60 else { continue }
@@ -97,19 +96,20 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func didScrobble(_ track: PlayingTrack) {
+        guard let username = lastFM.username else { return }
         let artist = track.artist.lowercased()
-        sessionPlays[artist, default: 0] += 1
+        let accountArtist = "\(username.lowercased())|\(artist)"
+        sessionPlays[accountArtist, default: 0] += 1
         if sessionPlays.values.reduce(0, +) % 10 == 0 { Task { await checkMilestone() } }
-        guard defaults.bool(forKey: "notifyNewArtists"), let username = lastFM.username,
-              checkedArtists.insert(artist).inserted else { return }
+        guard defaults.bool(forKey: "notifyNewArtists"), checkedArtists.insert(accountArtist).inserted else { return }
         var notified = Set(defaults.stringArray(forKey: "notifiedNewArtists") ?? [])
-        guard !notified.contains(artist) else { return }
+        guard !notified.contains(artist), !notified.contains(accountArtist) else { return }
         Task {
             guard let json = try? await lastFM.request(["method": "artist.getInfo", "artist": track.artist, "username": username]),
                   let stats = (json["artist"] as? [String: Any])?["stats"] as? [String: Any],
                   let total = LastFMClient.count(stats["userplaycount"]),
-                  total <= sessionPlays[artist, default: 1] else { return }
-            notified.insert(artist)
+                  total <= sessionPlays[accountArtist, default: 1] else { return }
+            notified.insert(accountArtist)
             defaults.set(Array(notified), forKey: "notifiedNewArtists")
             post(id: "newArtist-\(artist)", title: "New artist discovered",
                  body: "You scrobbled \(track.artist) for the first time.", page: "Reports")

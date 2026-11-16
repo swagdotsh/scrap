@@ -32,7 +32,6 @@ struct ContentView: View {
     @AppStorage("selectedPage") private var selection: Page = .nowPlaying
     @AppStorage("profileChartPeriod") private var chartPeriod: ChartPeriod = .week
     @AppStorage("reportKind") private var reportKind: ReportKind = .week
-    /// A historical period the user picked; nil follows the latest report.
     @State private var reportPeriod: ReportPeriod?
     @State private var report: ListeningReport?
     @State private var sessionReports: [ReportPeriod: ListeningReport] = [:]
@@ -51,9 +50,27 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var pageError: String?
     @State private var refreshID = 0
+    @State private var remoteUser: String?
+
+    private func isThisDevice(_ remote: RecentScrobble, local: PlayingTrack) -> Bool {
+        let names = client.metadata(local)
+        func same(_ a: String, _ b: String?) -> Bool { b.map { a.caseInsensitiveCompare($0) == .orderedSame } ?? false }
+        return (same(remote.artist, local.artist) || same(remote.artist, names["artist"]))
+            && (same(remote.title, local.title) || same(remote.title, names["track"]))
+    }
+
+    private var shownTrack: (track: PlayingTrack, isRemote: Bool)? {
+        let local = listener.track
+        if let local, listener.isPlaying { return (local, false) }
+        if client.canScrobble, let remote = remoteNowPlaying, !(local.map { isThisDevice(remote, local: $0) } ?? false) {
+            return (PlayingTrack(title: remote.title, artist: remote.artist, album: remote.album, duration: nil), true)
+        }
+        if let local { return (local, false) }
+        return nil
+    }
 
     private var detailTaskID: String {
-        [listener.track?.title ?? "", listener.track?.artist ?? "", listener.track?.album ?? "", client.username ?? "", String(client.canScrobble), String(usePrimaryArtist), preservedArtistNames].joined(separator: "\u{001F}")
+        [shownTrack?.track.title ?? "", shownTrack?.track.artist ?? "", shownTrack?.track.album ?? "", String(shownTrack?.isRemote ?? false), client.username ?? "", String(client.canScrobble), String(usePrimaryArtist), preservedArtistNames].joined(separator: "\u{001F}")
     }
 
     var body: some View {
@@ -120,12 +137,23 @@ struct ContentView: View {
         .frame(width: 680, height: 350)
         .background(isMenuBar ? Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1 : min(1, max(0.5, menuBarBackgroundOpacity))) : .clear)
         .task(id: "love-\(detailTaskID)") {
-            guard let track = listener.track else { return }
+            guard let track = shownTrack?.track else { return }
             await client.refreshLovedState(for: track)
+        }
+        .task(id: "remote-\(selection.rawValue)-\(client.username ?? "")-\(client.canScrobble)-\(listener.isPlaying)") {
+            if remoteUser != client.username { remoteNowPlaying = nil; remoteUser = client.username }
+            guard selection == .nowPlaying, client.canScrobble, !listener.isPlaying else { return }
+            while !Task.isCancelled {
+                let username = client.username
+                if let result = try? await client.recentScrobbles(limit: 1), !Task.isCancelled, client.username == username {
+                    remoteNowPlaying = result.nowPlaying
+                }
+                try? await Task.sleep(for: .seconds(30))
+            }
         }
         .task(id: "\(detailTaskID)-animated-\(animatedAlbumCovers && prioritizeAnimatedCovers)") {
             details = nil
-            guard let track = listener.track else { return }
+            guard let track = shownTrack?.track else { return }
             let result = await client.listeningDetails(for: artistDetailsTrack(track), preferAnimatedCovers: animatedAlbumCovers && prioritizeAnimatedCovers) { partial in
                 guard !Task.isCancelled else { return }
                 details = partial
@@ -187,7 +215,15 @@ struct ContentView: View {
     private var nowPlaying: some View {
         VStack(alignment: .leading, spacing: 22) {
         VStack(alignment: .leading, spacing: 10) {
-        if let source = listener.source {
+        if shownTrack?.isRemote == true {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Now playing from another device")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("Reported from last.fm. This isn't coming from this device.")
+                    .font(.caption).foregroundStyle(.tertiary)
+            }
+        } else if let source = listener.source {
             Text("Now playing from \(source.name)")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -201,6 +237,11 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 10).fill(.quaternary)
                             .overlay(Image(systemName: "music.note").font(.system(size: 32)).foregroundStyle(.tertiary))
                     }
+                } else if shownTrack?.isRemote == true, let remote = remoteNowPlaying, let url = remote.coverURL {
+                    RemoteAlbumArtwork(url: url, alternatives: remote.coverAlternatives) {
+                        RoundedRectangle(cornerRadius: 10).fill(.quaternary)
+                            .overlay(Image(systemName: "music.note").font(.system(size: 32)).foregroundStyle(.tertiary))
+                    }
                 } else {
                 RoundedRectangle(cornerRadius: 10).fill(.quaternary)
                     .overlay(Image(systemName: "music.note").font(.system(size: 32)).foregroundStyle(.tertiary))
@@ -209,7 +250,7 @@ struct ContentView: View {
             .frame(width: 136, height: 136).clipShape(RoundedRectangle(cornerRadius: 10))
             .accessibilityLabel("Album artwork")
             VStack(alignment: .leading, spacing: 12) {
-                if let track = listener.track {
+                if let (track, isRemote) = shownTrack {
                     HStack(alignment: .center, spacing: 12) {
                         Link(destination: track.trackURL) {
                             Text(track.title).font(.system(size: 28, weight: .bold))
@@ -234,16 +275,18 @@ struct ContentView: View {
                         .help(loved ? "Unlove on last.fm" : "Love on last.fm")
                         .accessibilityLabel(loved ? "Unlove on last.fm" : "Love on last.fm")
                     }
-                    nowPlayingMetadata(track)
+                    nowPlayingMetadata(track, notes: !isRemote)
                         .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    ProgressView(value: progress(track))
-                        .accessibilityLabel("Scrobble progress")
+                    if !isRemote {
+                        ProgressView(value: progress(track))
+                            .accessibilityLabel("Scrobble progress")
+                    }
                     listeningSummary(artistDetailsTrack(track))
                         .font(.callout).italic().foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let details {
                         linkChips(details.trackTags)
                     }
-                    if !listener.isPlaying { Text("Paused").font(.caption).foregroundStyle(.secondary) }
+                    if !isRemote, !listener.isPlaying { Text("Paused").font(.caption).foregroundStyle(.secondary) }
                 } else {
                     Text("Nothing playing").font(.title2.bold())
                     Text("Play something in an enabled music app.").foregroundStyle(.secondary)
@@ -251,7 +294,7 @@ struct ContentView: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
         }
-        if let track = listener.track, let details {
+        if let track = shownTrack?.track, let details {
             aboutArtist(artistDetailsTrack(track).artist, details: details.artist)
         }
         }.padding(.top, 16)
@@ -268,7 +311,11 @@ struct ContentView: View {
                             album: track.album, duration: track.duration)
     }
 
-    private func nowPlayingMetadata(_ track: PlayingTrack) -> Text {
+    private func nowPlayingMetadata(_ track: PlayingTrack, notes: Bool = true) -> Text {
+        guard notes else {
+            return linkedName(track.artist, url: track.artistURL)
+                + Text(track.album.isEmpty ? "" : " - ") + linkedName(track.album, url: track.albumURL).italic()
+        }
         let metadata = LastFMClient.metadata(
             for: track,
             removeAlbumTypeSuffix: removeAlbumTypeSuffix,
@@ -379,7 +426,7 @@ struct ContentView: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            Link("Artist images from TheAudioDB", destination: URL(string: "https://www.theaudiodb.com")!)
+            Link("Artist images from Spotify", destination: URL(string: "https://open.spotify.com")!)
                 .font(.caption2).foregroundStyle(.secondary)
             Text("Similar artists").font(.subheadline.bold())
             if details.similar.isEmpty {
@@ -532,7 +579,6 @@ struct ContentView: View {
 
     private var shownPeriod: ReportPeriod { reportPeriod ?? .latest(reportKind) }
     private var reportTaskID: String { "\(shownPeriod.kind.rawValue)-\(Int(shownPeriod.interval.start.timeIntervalSince1970))" }
-    /// last.fm launched in 2002; used until the account's sign-up date is known.
     private var earliestReportDate: Date { accountStart ?? Date(timeIntervalSince1970: 1_009_843_200) }
 
     private func loadReport() async {
@@ -546,7 +592,6 @@ struct ContentView: View {
         }
         pageError = nil
         if let cached = sessionReports[period] { report = cached; return }
-        // Recent weeks are saved on this Mac; a finished one doesn't need rebuilding.
         report = forced ? nil : ReportStore.load(period, username: username)
         if let report, report.isFinal { sessionReports[period] = report; return }
         isLoading = true

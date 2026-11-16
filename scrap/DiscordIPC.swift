@@ -1,7 +1,5 @@
 import Foundation
 
-/// Minimal client for the local Discord RPC socket (`discord-ipc-N` in the user's temp folder).
-/// Frames are a little-endian opcode and length followed by a JSON payload.
 nonisolated final class DiscordIPCConnection: @unchecked Sendable {
     enum Opcode: UInt32 { case handshake = 0, frame = 1, close = 2, ping = 3, pong = 4 }
 
@@ -11,7 +9,6 @@ nonisolated final class DiscordIPCConnection: @unchecked Sendable {
         case error(code: Int?, message: String)
     }
 
-    /// Called on the main actor. Set once, before connecting.
     var onEvent: (@MainActor (Event) -> Void)?
     private let queue = DispatchQueue(label: "scrap.discord-ipc")
     private var socketFD: Int32 = -1
@@ -64,7 +61,6 @@ nonisolated final class DiscordIPCConnection: @unchecked Sendable {
         return data
     }
 
-    /// Removes and returns every complete frame at the start of `buffer`.
     static func decodeFrames(_ buffer: inout Data) -> [(opcode: UInt32, payload: [String: Any])] {
         var frames: [(UInt32, [String: Any])] = []
         while buffer.count >= 8 {
@@ -144,8 +140,6 @@ nonisolated final class DiscordIPCConnection: @unchecked Sendable {
 
     // MARK: - Socket discovery
 
-    /// scrap is sandboxed, so `TMPDIR` points inside its container. Discord's socket lives in the
-    /// real per-user temp folder under /private/var/folders, which the sandbox exception lets us scan.
     static func socketPaths() -> [String] {
         var folders: [String] = []
         if let tmp = ProcessInfo.processInfo.environment["TMPDIR"], !tmp.contains("/Library/Containers/") {
