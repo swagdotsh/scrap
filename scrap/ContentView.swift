@@ -73,6 +73,16 @@ struct ContentView: View {
         [shownTrack?.track.title ?? "", shownTrack?.track.artist ?? "", shownTrack?.track.album ?? "", String(shownTrack?.isRemote ?? false), client.username ?? "", String(client.canScrobble), String(usePrimaryArtist), preservedArtistNames].joined(separator: "\u{001F}")
     }
 
+    private var connectionStatus: (text: String, color: Color) {
+        guard client.canScrobble else { return ("Not connected", .orange) }
+        guard client.isOnline else { return ("No internet connection", .red) }
+        switch client.lastFMReachable {
+        case true: return ("Connected as \(client.username ?? "")", .green)
+        case false: return ("Connected, can't communicate with last.fm", .orange)
+        case nil: return ("Connected as \(client.username ?? "")", .orange)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
@@ -125,11 +135,11 @@ struct ContentView: View {
                 HStack {
                     Spacer()
                     Circle()
-                        .fill(!client.canScrobble ? Color.orange : client.lastFMReachable == true ? Color.green : client.lastFMReachable == false ? Color.red : Color.orange)
+                        .fill(connectionStatus.color)
                         .frame(width: 8, height: 8)
                         .help(client.connectionHelp)
                         .accessibilityLabel(client.connectionHelp)
-                    Text(client.canScrobble ? "Connected as \(client.username ?? "")" : "Not connected")
+                    Text(connectionStatus.text)
                         .font(.caption).italic().foregroundStyle(.secondary)
                 }.padding(.horizontal, 18).padding(.bottom, 14)
             }

@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 import AppKit
 import Combine
+import Network
 
 nonisolated struct LastFMAccount: Codable, Equatable, Identifiable {
     var username: String
@@ -25,13 +26,16 @@ final class LastFMClient: ObservableObject {
     var canAddAccount: Bool { accounts.count < Self.maxAccounts }
     @Published private(set) var pendingToken: String?
     @Published private(set) var lastFMReachable: Bool?
+    @Published private(set) var isOnline = true
+    private let pathMonitor = NWPathMonitor()
     private var checkingConnection = false
     var connectionHelp: String {
         if !isConfigured { return "Setup needed: last.fm app credentials are missing." }
         if sessionKey == nil { return "Not signed in to last.fm." }
+        if !isOnline { return "Offline (No internet connection)" }
         switch lastFMReachable {
         case true: return "Online (Signed in and able to communicate with last.fm)"
-        case false: return "Offline (Unable to communicate with last.fm. Check your connection or try again later)"
+        case false: return "Connected to the internet, but unable to communicate with last.fm. Try again later"
         case nil: return "Checking the connection to last.fm…"
         }
     }
@@ -49,6 +53,20 @@ final class LastFMClient: ObservableObject {
             guard self.sessionKey == sessionKey else { return }
             lastFMReachable = false
         }
+    }
+
+    private func startNetworkMonitor() {
+        pathMonitor.pathUpdateHandler = { @Sendable [weak self] path in
+            let online = path.status == .satisfied
+            Task { @MainActor in self?.networkChanged(online: online) }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "scrap.network"))
+    }
+
+    private func networkChanged(online: Bool) {
+        guard online != isOnline else { return }
+        isOnline = online
+        if online { Task { await checkConnection() } }
     }
 
     @Published var scrobblingPaused = false
@@ -105,6 +123,7 @@ final class LastFMClient: ObservableObject {
         }
         updatePendingCount()
         status = Self.accountStatus(isConfigured: isConfigured, hasSession: sessionKey != nil, username: username)
+        startNetworkMonitor()
     }
 
     nonisolated static func adding(_ account: LastFMAccount, to accounts: [LastFMAccount], limit: Int = maxAccounts) -> [LastFMAccount]? {
