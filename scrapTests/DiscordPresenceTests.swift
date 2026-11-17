@@ -6,6 +6,21 @@ import Testing
 struct DiscordPresenceTests {
     private let track = PlayingTrack(title: "Wants and Needs", artist: "Drake", album: "Scary Hours 2", duration: 192)
 
+    @Test func litterboxUploadsUseAUniqueFilename() throws {
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 0xFF, 0xD9])
+        let request = DiscordPresence.litterboxRequest(jpeg, boundary: "test-boundary")
+        let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
+        let filename = DiscordPresence.litterboxFilename(jpeg)
+        #expect(filename.hasPrefix("scrap-") && filename.hasSuffix(".jpg") && filename.count == 26)
+        #expect(filename == DiscordPresence.litterboxFilename(jpeg))
+        #expect(filename != DiscordPresence.litterboxFilename(Data([1, 2, 3])))
+        #expect(!body.contains("cover.jpg"))
+        #expect(body.contains("name=\"fileToUpload\"; filename=\"\(filename)\"\r\nContent-Type: image/jpeg\r\n\r\n"))
+        #expect(body.contains("name=\"reqtype\"\r\n\r\nfileupload\r\n") && body.contains("name=\"time\"\r\n\r\n72h\r\n"))
+        #expect(body.hasSuffix("\r\n--test-boundary--\r\n"))
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "multipart/form-data; boundary=test-boundary")
+    }
+
     private func info(album: String? = nil, songLink: URL? = URL(string: "https://song.link/s/abc")) -> DiscordTrackInfo {
         let base = album.map { PlayingTrack(title: track.title, artist: track.artist, album: $0, duration: track.duration) } ?? track
         return DiscordTrackInfo(track: base, service: "Spotify", coverURL: URL(string: "https://lastfm.freetls.fastly.net/i/u/300x300/a.png"), songLinkURL: songLink)

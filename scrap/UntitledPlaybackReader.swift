@@ -1,79 +1,121 @@
+import AppKit
 import ApplicationServices
-import Foundation
 
-struct UntitledPlayback {
-    private static let playbackLine = try! NSRegularExpression(pattern: #"^(\d+(?::\d{1,2}){1,2})\s*/\s*(\d+(?::\d{1,2}){1,2})\s+(.+)$"#)
-    let track: PlayingTrack
-    let position: TimeInterval
-    let isPlaying: Bool
-
-    var id: String { "\(track.title)\u{1F}\(track.artist)\u{1F}\(track.album)" }
-
-    static func parse(_ value: String, isPlaying: Bool) -> UntitledPlayback? {
-        let lines = value.components(separatedBy: .newlines)
-        guard lines.count >= 2 else { return nil }
-        let title = lines[0].trimmingCharacters(in: .whitespacesAndNewlines)
-        let details = lines.dropFirst().joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        let range = NSRange(details.startIndex..<details.endIndex, in: details)
-        guard !title.isEmpty, let match = playbackLine.firstMatch(in: details, range: range),
-              let positionRange = Range(match.range(at: 1), in: details),
-              let durationRange = Range(match.range(at: 2), in: details),
-              let metadataRange = Range(match.range(at: 3), in: details),
-              let position = clock(String(details[positionRange])),
-              let duration = clock(String(details[durationRange])),
-              duration > 0 else { return nil }
-        let metadata = String(details[metadataRange])
-        guard let separator = metadata.range(of: " · ", options: .backwards) else { return nil }
-        let project = metadata[..<separator.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
-        let artist = metadata[separator.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !artist.isEmpty else { return nil }
-        return UntitledPlayback(track: PlayingTrack(title: title, artist: artist, album: project, duration: duration), position: position, isPlaying: isPlaying)
+enum UntitledPlaybackReader {
+    enum Status: Equatable {
+        case needsAccess, notRunning, noPlayer, reading(PlayingTrack, isPlaying: Bool)
     }
 
-    private static func clock(_ value: String) -> TimeInterval? {
-        let parts = value.split(separator: ":").compactMap { Int($0) }
-        guard (2...3).contains(parts.count) else { return nil }
-        return TimeInterval(parts.reduce(0) { $0 * 60 + $1 })
+    static var isTrusted: Bool { AXIsProcessTrusted() }
+
+    @discardableResult
+    static func requestAccess() -> Bool {
+        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+    }
+
+    static var isRunning: Bool { UntitledAccessibility.runningApplication != nil }
+
+    static let accessGrantedKey = "untitledAccessGranted"
+
+    static func openAccessSettings() {
+        requestAccess()
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
+
+    static func current() -> UntitledPlayback? {
+        guard isTrusted else { return nil }
+        if !UserDefaults.standard.bool(forKey: accessGrantedKey) { UserDefaults.standard.set(true, forKey: accessGrantedKey) }
+        guard isRunning else { return nil }
+        UntitledHelperClient.shared.refresh()
+        return UntitledHelperClient.shared.latest
+    }
+
+    static func status() -> Status {
+        guard isTrusted else { return .needsAccess }
+        guard isRunning else { return .notRunning }
+        guard let playback = current() else { return .noPlayer }
+        return .reading(playback.track, isPlaying: playback.isPlaying)
+    }
+
+    static func diagnostics() async -> String {
+        let header = CrashReporter.headerText().trimmingCharacters(in: .newlines)
+            + "\nscrap's own Accessibility access: \(isTrusted ? "yes" : "no")"
+        return await UntitledHelperClient.shared.diagnostics(header: header)
+            ?? header + "\nCouldn't reach scrap's [untitled] helper."
     }
 }
 
-enum UntitledPlaybackReader {
-    static func read(pid: pid_t) -> UntitledPlayback? {
-        let application = AXUIElementCreateApplication(pid)
-        var windowsValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(application, kAXWindowsAttribute as CFString, &windowsValue) == .success,
-              let windows = windowsValue as? [AXUIElement] else { return nil }
+@MainActor
+final class UntitledHelperClient {
+    static let shared = UntitledHelperClient()
+    private var connection: NSXPCConnection?
+    private var requesting = false
+    private var latestAt = Date.distantPast
+    private var cached: UntitledPlayback?
 
-        for window in windows {
-            var pending = [window]
-            var visited = 0
-            while !pending.isEmpty && visited < 500 {
-                let element = pending.removeFirst()
-                visited += 1
-                if let value = string(element, attribute: kAXValueAttribute), value.contains("\n"), value.contains(" · "),
-                   let playback = UntitledPlayback.parse(value, isPlaying: true),
-                   let parentValue = elementValue(element, attribute: kAXParentAttribute),
-                   CFGetTypeID(parentValue) == AXUIElementGetTypeID(),
-                   let siblings = elementValue(parentValue as! AXUIElement, attribute: kAXChildrenAttribute) as? [AXUIElement] {
-                    let buttons = siblings.compactMap { string($0, attribute: kAXDescriptionAttribute) }
-                    if buttons.contains("Pause") { return playback }
-                    if buttons.contains("Play") { return UntitledPlayback.parse(value, isPlaying: false) }
-                }
-                if let children = elementValue(element, attribute: kAXChildrenAttribute) as? [AXUIElement] {
-                    pending.append(contentsOf: children)
-                }
+    var latest: UntitledPlayback? { Date().timeIntervalSince(latestAt) < 3 ? cached : nil }
+
+    func refresh() {
+        guard !requesting, let helper = proxy(onError: { [weak self] in self?.requesting = false }) else { return }
+        requesting = true
+        helper.currentPlayback { data in
+            let playback = data.flatMap { try? JSONDecoder().decode(UntitledPlayback.self, from: $0) }
+            Task { @MainActor in
+                self.cached = playback
+                self.latestAt = Date()
+                self.requesting = false
             }
         }
-        return nil
     }
 
-    private static func elementValue(_ element: AXUIElement, attribute: String) -> CFTypeRef? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
-        return value
+    func diagnostics(header: String) async -> String? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
+            let resumed = ResumeOnce(continuation)
+            guard let helper = proxy(onError: { resumed.resume(nil) }) else {
+                resumed.resume(nil)
+                return
+            }
+            helper.diagnostics(header: header) { text in resumed.resume(text) }
+        }
     }
 
-    private static func string(_ element: AXUIElement, attribute: String) -> String? {
-        elementValue(element, attribute: attribute) as? String
+    private func proxy(onError: @escaping @MainActor () -> Void) -> UntitledHelperProtocol? {
+        let connection = connection ?? makeConnection()
+        let proxy = connection.remoteObjectProxyWithErrorHandler { _ in
+            Task { @MainActor in onError() }
+        }
+        return proxy as? UntitledHelperProtocol
+    }
+
+    private func makeConnection() -> NSXPCConnection {
+        let connection = NSXPCConnection(serviceName: untitledHelperServiceName)
+        connection.remoteObjectInterface = NSXPCInterface(with: UntitledHelperProtocol.self)
+        connection.invalidationHandler = { [weak self] in
+            Task { @MainActor in
+                self?.connection = nil
+                self?.requesting = false
+            }
+        }
+        connection.resume()
+        self.connection = connection
+        return connection
+    }
+}
+
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<String?, Never>?
+
+    init(_ continuation: CheckedContinuation<String?, Never>) { self.continuation = continuation }
+
+    func resume(_ value: String?) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: value)
     }
 }

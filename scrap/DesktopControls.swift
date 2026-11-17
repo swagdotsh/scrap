@@ -121,7 +121,6 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
         return entry
     }
 
-    /// Filled note while a track is playing and being scrobbled to a reachable last.fm account; outlined otherwise.
     private func updateIcon() {
         let client = model.client
         let scrobbling = model.listener.isPlaying && model.listener.track != nil && client.canScrobble
@@ -130,7 +129,6 @@ final class DesktopControls: NSObject, NSPopoverDelegate {
         if item.button?.image !== icon { item.button?.image = icon }
     }
 
-    /// SF Symbols has no outlined music note, so trace the filled glyph's edge: erode it and keep only the rim.
     static func outlinedSymbol(_ name: String, accessibilityDescription: String) -> NSImage? {
         guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription) else { return nil }
         let scale: CGFloat = 4
@@ -312,6 +310,7 @@ private struct PreferencesView: View {
     @AppStorage("notifyWeeklyReport") private var notifyWeeklyReport = true
     @State private var accountProfile: ListenerProfile?
     @State private var showDeleteConfirmation = false
+    @State private var accountToRemove: LastFMAccount?
     @State private var showUntitledAccessibilityAlert = false
 
     var body: some View {
@@ -428,6 +427,78 @@ private struct PreferencesView: View {
     }
 
     private var accountsTab: some View {
+        HStack(alignment: .top, spacing: 16) {
+            accountList
+            Divider()
+            activeAccountDetails
+        }
+        .padding(16)
+        .task(id: client.username) { await refreshProfile() }
+        .confirmationDialog("Remove all saved last.fm accounts?", isPresented: $showDeleteConfirmation) {
+            Button("Remove All from Keychain", role: .destructive) { client.removeAllAccounts() }
+        } message: {
+            Text("This removes every saved session key and username from your Mac's Keychain and signs you out of scrap.")
+        }
+        .confirmationDialog("Remove \(accountToRemove?.username ?? "this account") from scrap?",
+                            isPresented: Binding(get: { accountToRemove != nil }, set: { if !$0 { accountToRemove = nil } })) {
+            Button("Remove", role: .destructive) {
+                if let accountToRemove { client.removeAccount(accountToRemove.id) }
+                accountToRemove = nil
+            }
+        } message: {
+            Text("Its session key is removed from your Mac's Keychain. You can add it again later.")
+        }
+    }
+
+    private var accountList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Accounts").font(.headline)
+                Spacer()
+                Text("\(client.accounts.count) of \(LastFMClient.maxAccounts)")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if client.accounts.isEmpty {
+                Text("No accounts saved yet.").font(.callout).foregroundStyle(.secondary)
+            }
+            ForEach(client.accounts) { account in
+                let isActive = account.id == client.activeAccountID
+                HStack(spacing: 8) {
+                    Button { client.switchAccount(to: account.id) } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                            Text(account.username).lineLimit(1).truncationMode(.middle)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(client.isBusy)
+                    .help(isActive ? "Scrobbling to \(account.username)" : "Switch to \(account.username)")
+                    .accessibilityLabel(isActive ? "\(account.username), active account" : "Switch to \(account.username)")
+                    Button { accountToRemove = account } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless)
+                        .disabled(client.isBusy)
+                        .help("Remove \(account.username)")
+                        .accessibilityLabel("Remove \(account.username)")
+                }
+                .padding(.vertical, 3).padding(.horizontal, 6)
+                .background(isActive ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 6))
+            }
+            Button("Add Account…") { Task { await client.beginAuth() } }
+                .disabled(!client.isConfigured || !client.canAddAccount || client.isBusy)
+            Text(client.canAddAccount
+                 ? "To add another account, sign in to it on last.fm in your browser first. scrap scrobbles to the selected account."
+                 : "You've saved \(LastFMClient.maxAccounts) accounts, the most scrap can hold. Remove one to add another.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(width: 230)
+    }
+
+    private var activeAccountDetails: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 AsyncImage(url: accountProfile?.avatarURL) { image in
@@ -461,20 +532,16 @@ private struct PreferencesView: View {
             Divider()
             HStack {
                 Button("Sign Out") { client.signOut() }
-                    .disabled(client.sessionKey == nil || client.isBusy || client.isSending)
-                Button("Remove last.fm Keychain Data") { showDeleteConfirmation = true }
-                    .disabled((client.sessionKey == nil && client.username == nil) || client.isBusy || client.isSending)
+                    .disabled(client.username == nil || client.isBusy)
+                    .help("Remove this account from scrap. Another saved account becomes active.")
+                Button("Remove All Accounts…") { showDeleteConfirmation = true }
+                    .disabled((client.accounts.isEmpty && client.sessionKey == nil && client.username == nil) || client.isBusy)
             }
             Text(client.status).font(.caption).foregroundStyle(.secondary)
-            Spacer()
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
-        .padding(16)
-        .task(id: client.username) { await refreshProfile() }
-        .confirmationDialog("Remove saved last.fm account?", isPresented: $showDeleteConfirmation) {
-            Button("Remove from Keychain", role: .destructive) { client.signOut() }
-        } message: {
-            Text("This removes the saved session key and username from your Mac's Keychain and signs you out of scrap.")
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var servicesTab: some View {
@@ -487,7 +554,7 @@ private struct PreferencesView: View {
                 Toggle("[untitled]", isOn: $scrobbleUntitled)
                     .fixedSize(horizontal: true, vertical: false)
                     .onChange(of: scrobbleUntitled) { _, enabled in
-                        if enabled && !AXIsProcessTrusted() { showUntitledAccessibilityAlert = true }
+                        if enabled && !UntitledPlaybackReader.requestAccess() { showUntitledAccessibilityAlert = true }
                     }
                 Text("Experimental")
                     .font(.caption2)
@@ -498,6 +565,7 @@ private struct PreferencesView: View {
             }
             Text("[untitled] needs Accessibility access. Project names are used as album names.")
                 .font(.caption).foregroundStyle(.secondary)
+            if scrobbleUntitled { UntitledStatusView() }
             Text("If Spotify is already connected to last.fm, enabling it here may create duplicate scrobbles.")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
@@ -512,7 +580,7 @@ private struct PreferencesView: View {
             }
             Button("Later", role: .cancel) { }
         } message: {
-            Text("scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on scrap under Privacy & Security -> Device Control and Data Access.")
+            Text("scrap needs Accessibility access to read [untitled] playback. In System Settings, add & turn on scrap under Privacy & Security -> Device Control and Data Access. If scrap is already listed and switched on, remove it with − and add it again: macOS forgets the permission when scrap is updated.")
         }
     }
 
@@ -553,5 +621,60 @@ private struct PreferencesView: View {
         let profile = try? await client.profile()
         guard !Task.isCancelled, client.username == username else { return }
         accountProfile = profile
+    }
+}
+
+private struct UntitledStatusView: View {
+    @State private var status: UntitledPlaybackReader.Status?
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Circle().fill(color).frame(width: 7, height: 7)
+                Text(message).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                if status == .needsAccess {
+                    Button("Add scrap in Settings…") { UntitledPlaybackReader.openAccessSettings() }
+                }
+                Button(copied ? "Copied" : "Copy Diagnostics") {
+                    Task {
+                        let text = await UntitledPlaybackReader.diagnostics()
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        copied = true
+                    }
+                }
+            }
+            .controlSize(.small)
+        }
+        .padding(.leading, 20)
+        .task {
+            while !Task.isCancelled {
+                status = UntitledPlaybackReader.status()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private var message: String {
+        switch status {
+        case nil: "Checking [untitled]…"
+        case .needsAccess: "scrap doesn't have Accessibility access. Click Add scrap in Settings…, then drag scrap from the Finder window into the list and switch it on. If scrap is already listed, remove it with − first: macOS forgets the permission when scrap is updated."
+        case .notRunning: "Open [untitled] to scrobble it."
+        case .noPlayer: "[untitled] is open, but scrap can't find what's playing. Play something, or copy the diagnostics and include them in an issue."
+        case .reading(let track, let isPlaying): "\(isPlaying ? "Reading" : "Paused"): \(track.title) – \(track.artist)"
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .reading: .green
+        case .notRunning, nil: .secondary
+        case .noPlayer: .orange
+        case .needsAccess: .red
+        }
     }
 }

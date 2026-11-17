@@ -39,7 +39,6 @@ final class NowPlayingListener: ObservableObject {
     @Published private(set) var isFavorited = false
     @Published private(set) var source: PlaybackService?
     @Published private(set) var errorMessage: String?
-    /// Playback position in seconds and the player's track ID. Not published, since they change every second.
     private(set) var position: TimeInterval = 0
     private(set) var trackID: String?
     var onAppleMusicFavorite: ((PlayingTrack) -> Void)?
@@ -116,8 +115,7 @@ final class NowPlayingListener: ObservableObject {
             if !AXIsProcessTrusted() {
                 return (nil, "Add & enable scrap in System Settings -> Privacy & Security -> Device Control and Data Access to scrobble [untitled].")
             }
-            guard let application = NSRunningApplication.runningApplications(withBundleIdentifier: service.bundleID).first,
-                  let playback = UntitledPlaybackReader.read(pid: application.processIdentifier) else { return (nil, nil) }
+            guard let playback = UntitledPlaybackReader.current() else { return (nil, nil) }
             return (Snapshot(source: service, track: playback.track, isPlaying: playback.isPlaying, position: playback.position, id: playback.id), nil)
         }
         let scriptSource: String

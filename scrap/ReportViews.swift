@@ -1,7 +1,6 @@
 import Charts
 import SwiftUI
 
-/// Calendar-style picker for a historical week, month or year.
 struct ReportPeriodPicker: View {
     let kind: ReportKind
     let earliest: Date
@@ -105,7 +104,6 @@ struct ReportPeriodPicker: View {
     }
 }
 
-/// Scrobbles per hour of the day, with the busiest hour highlighted.
 struct ListeningClockChart: View {
     let hourly: [Int]
 
@@ -121,7 +119,8 @@ struct ListeningClockChart: View {
 
     var body: some View {
         Chart(Array(hourly.enumerated()), id: \.offset) { hour, count in
-            BarMark(x: .value("Hour", hour), y: .value("Scrobbles", count), width: .ratio(0.7))
+            RectangleMark(xStart: .value("Hour", Double(hour) - 0.35), xEnd: .value("Hour", Double(hour) + 0.35),
+                          yStart: .value("Scrobbles", 0), yEnd: .value("Scrobbles", count))
                 .foregroundStyle(hour == peak ? Color.accentColor : Color.accentColor.opacity(0.35))
                 .accessibilityLabel(Self.hourLabel(hour))
                 .accessibilityValue("\(count) scrobbles")
@@ -137,7 +136,6 @@ struct ListeningClockChart: View {
     }
 }
 
-/// Scrobbles per month of a year, with the busiest month highlighted.
 struct MonthlyScrobblesChart: View {
     let monthly: [Int]
 
@@ -167,7 +165,6 @@ struct MonthlyScrobblesChart: View {
     }
 }
 
-/// Tags with bars sized relative to the top tag.
 struct TopTagsList: View {
     let tags: [ListeningReport.Tag]
 

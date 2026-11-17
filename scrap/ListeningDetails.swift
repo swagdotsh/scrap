@@ -26,6 +26,7 @@ struct RecentScrobble: Identifiable {
     var coverURL: URL? = nil
     var coverAlternatives: [URL] = []
     var trackURL: URL? = nil
+    var album = ""
 
     var destination: URL {
         if let trackURL { return trackURL }
@@ -112,9 +113,9 @@ extension LastFMClient {
         return details
     }
 
-    func recentScrobbles() async throws -> (nowPlaying: RecentScrobble?, scrobbles: [RecentScrobble]) {
+    func recentScrobbles(limit: Int = 50) async throws -> (nowPlaying: RecentScrobble?, scrobbles: [RecentScrobble]) {
         guard let username else { return (nil, []) }
-        let json = try await request(["method": "user.getRecentTracks", "user": username, "limit": "50"])
+        let json = try await request(["method": "user.getRecentTracks", "user": username, "limit": String(limit)])
         guard let root = json["recenttracks"] as? [String: Any] else { return (nil, []) }
         let rows = root["track"] as? [[String: Any]] ?? (root["track"] as? [String: Any]).map { [$0] } ?? []
         var nowPlaying: RecentScrobble?
@@ -124,12 +125,15 @@ extension LastFMClient {
             let coverURL = Self.cover(row["image"])
             let alternatives = ArtworkCandidates.urls(row["image"])
             let trackURL = MusicLink.parse(row).first?.url
+            let album = (row["album"] as? [String: Any])?["#text"] as? String ?? ""
             if (row["@attr"] as? [String: Any])?["nowplaying"] as? String == "true" {
-                nowPlaying = RecentScrobble(id: "now-playing", title: title, artist: artist, date: Date(), coverURL: coverURL, coverAlternatives: alternatives, trackURL: trackURL)
+                nowPlaying = RecentScrobble(id: "now-playing", title: title, artist: artist, date: Date(), coverURL: coverURL,
+                                            coverAlternatives: alternatives, trackURL: trackURL, album: album)
                 return nil
             }
             guard let timestamp = Self.count((row["date"] as? [String: Any])?["uts"]) else { return nil }
-            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist, date: Date(timeIntervalSince1970: Double(timestamp)), coverURL: coverURL, coverAlternatives: alternatives, trackURL: trackURL)
+            return RecentScrobble(id: "\(timestamp)-\(index)", title: title, artist: artist, date: Date(timeIntervalSince1970: Double(timestamp)),
+                                  coverURL: coverURL, coverAlternatives: alternatives, trackURL: trackURL, album: album)
         }
         return (nowPlaying, scrobbles)
     }

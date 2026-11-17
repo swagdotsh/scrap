@@ -1,6 +1,7 @@
 <div align="center">
   
-<img width="792" height="494" alt="image" src="https://github.com/user-attachments/assets/61e49c66-18c5-4641-8fab-6dc3fa0f0e32" />
+<img width="792" height="494" alt="image" src="https://github.com/user-attachments/assets/d5e2f4dd-c8be-498a-96d3-5c573bc731b9" />
+
 
 
 
@@ -48,6 +49,7 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 
 ### Your last.fm account
 
+- Save up to 5 last.fm accounts and switch between them in **Settings → last.fm Accounts**; scrap scrobbles to the selected account
 - Recent scrobbles
 - Top artists, albums & tracks for the last 7 days, 30 days, 365 days or all time, with a top 50 gallery for each
 - Friends' recent listening activity
@@ -63,7 +65,7 @@ An open-source native scrobbler for macOS. Requires macOS 14.6 (Sonoma) and abov
 - Up to two buttons: Apple Music, Spotify, song.link, or the last.fm track, artist or album page
 - Choose whether to hide your activity or keep it when music is paused
 - Use the same settings everywhere or separate settings for Apple Music, Spotify and [untitled], or hide your activity for a service entirely
-- Live preview in **Preferences → Discord**
+- Live preview in **Preferences > Discord**
 
 ### Desktop controls
 
@@ -95,12 +97,12 @@ That's it. Keep scrap running while you listen.
 
 To scrobble Spotify, enable it in **Preferences → Services**. Spotify is off by default so it does not duplicate an existing Spotify–last.fm connection.
 
-To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings → Privacy & Security → Accessibility** when prompted. scrap uses the [untitled] project name as the last.fm album name. [untitled] is off by default.
+To scrobble [untitled], enable it in **Preferences → Services** and allow scrap in **System Settings > Privacy & Security > Accessibility** when prompted. scrap uses the [untitled] project name as the last.fm album name. [untitled] is off by default.
 
 To show your listening activity on Discord, turn it on in **Preferences → Discord** (or right-click the menu bar icon → **Discord Rich Presence**) and keep the Discord desktop app open. Buttons only appear to other people, not on your own profile.
 
 > [!IMPORTANT]
-> The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings -> Privacy & Security -> Open Anyway** after trying to open it.
+> The current macOS build isn't signed (because it's kinda 200$ a year). If macOS blocks it, go to **System Settings > Privacy & Security > Open Anyway** after trying to open it.
 >
 > Visit [Apple Support](https://support.apple.com/en-gb/102445) for more info.
 
@@ -123,9 +125,13 @@ You'll need **Xcode 27** and your own [last.fm API credentials](https://www.last
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
 DISCORD_APPLICATION_ID=your_discord_application_id
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
 
    `DISCORD_APPLICATION_ID` is only needed for Discord Rich Presence. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and copy its **Application ID**. The application's name is shown on Discord as the "Listening to …" heading of your activity, so name it what you want people to see (for example "Apple Music"). Without it, scrap works normally and the Discord tab says it isn't set up.
+
+   `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are only needed for artist images. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the **Web API** enabled and copy its **Client ID** and **Client secret**. Images are saved on your Mac for up to 24 hours. Without them, artists show a placeholder.
 
 3. Open `scrap.xcodeproj` in Xcode
 4. Select the `scrap` scheme and your Mac as the destination

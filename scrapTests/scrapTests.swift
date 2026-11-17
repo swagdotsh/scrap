@@ -143,6 +143,39 @@ struct scrapTests {
         #expect(UntitledPlayback.parse("Song\n 0:46 / 2:29 Project · ", isPlaying: true) == nil)
     }
 
+    @Test func untitledNoticeAppearsAfterAnUpdateRemovedAccessUntilFixedOrIgnored() {
+        func decide(_ previous: String?, _ current: String = "2.0", enabled: Bool = true, granted: Bool? = true,
+                    trusted: Bool = false, pending: Bool = false, ignored: Bool = false) -> UntitledAccessNotice.Decision {
+            UntitledAccessNotice.decide(previousBuild: previous, currentBuild: current, enabled: enabled, wasGranted: granted,
+                                        trusted: trusted, pending: pending, ignoredForever: ignored)
+        }
+        let shown = UntitledAccessNotice.Decision(show: true, pending: true)
+        let nothing = UntitledAccessNotice.Decision(show: false, pending: false)
+        #expect(decide("1.9") == shown)
+        #expect(decide(nil, "1.9", granted: nil) == shown)
+        #expect(decide("2.0", pending: true) == shown)
+        #expect(decide("2.0") == nothing)
+        #expect(decide("1.9", granted: false) == nothing)
+        #expect(decide("1.9", trusted: true, pending: true) == nothing)
+        #expect(decide("1.9", enabled: false, pending: true) == nothing)
+        #expect(decide("1.9", ignored: true) == UntitledAccessNotice.Decision(show: false, pending: true))
+    }
+
+    @Test func untitledPlayerBarFromVersion113() {
+        let texts = [" · ", "3 tracks · 6m 33s", "drake classic remix (miphy)", "0:24", " / ", "2:29", "songs from camp star · zekkie"]
+        let playing = UntitledPlayback.parse(barTexts: texts, transportButton: "Pause")
+        #expect(playing?.track.title == "drake classic remix (miphy)")
+        #expect(playing?.track.artist == "zekkie")
+        #expect(playing?.track.album == "songs from camp star")
+        #expect(playing?.track.duration == 149)
+        #expect(playing?.position == 24)
+        #expect(playing?.isPlaying == true)
+        #expect(UntitledPlayback.parse(barTexts: texts, transportButton: "Play")?.isPlaying == false)
+        #expect(UntitledPlayback.parse(barTexts: ["Song", "0:24", "2:29", "Project · zekkie"], transportButton: "Pause")?.track.title == "Song")
+        #expect(UntitledPlayback.parse(barTexts: ["3 tracks · 6m 33s", "Pause"], transportButton: "Pause") == nil)
+        #expect(UntitledPlayback.parse(barTexts: ["Song", "0:24", " / ", "2:29", "Project · "], transportButton: "Pause") == nil)
+    }
+
     @Test func pausesDoNotCountAndRepeatStartsANewScrobble() {
         let engine = ScrobbleEngine()
         let start = Date(timeIntervalSince1970: 1000)
@@ -191,10 +224,77 @@ struct scrapTests {
         #expect(LastFMClient.accountStatus(isConfigured: true, hasSession: true, username: "listener") == "Connected as listener.")
     }
 
+    @Test func savedAccountsAreLimitedAndMatchedWithoutCase() throws {
+        let first = LastFMAccount(username: "Listener", sessionKey: "one")
+        var accounts = try #require(LastFMClient.adding(first, to: []))
+        accounts = try #require(LastFMClient.adding(LastFMAccount(username: "listener", sessionKey: "two"), to: accounts))
+        #expect(accounts.count == 1)
+        #expect(accounts.first?.sessionKey == "two")
+        for number in 2...LastFMClient.maxAccounts {
+            accounts = try #require(LastFMClient.adding(LastFMAccount(username: "user\(number)", sessionKey: "\(number)"), to: accounts))
+        }
+        #expect(accounts.count == 5)
+        #expect(LastFMClient.adding(LastFMAccount(username: "sixth", sessionKey: "6"), to: accounts) == nil)
+        #expect(LastFMClient.adding(LastFMAccount(username: "USER3", sessionKey: "new"), to: accounts)?[2].sessionKey == "new")
+        #expect(accounts.map(\.username) == ["listener", "user2", "user3", "user4", "user5"])
+    }
+
+    @Test func crashReportsHaveVersionsAndReadableSymbols() throws {
+        let header = CrashReporter.headerText(info: ["CFBundleShortVersionString": "1.9", "CFBundleVersion": "1.9"], os: "Version 27.0")
+        #expect(header.hasPrefix("scrap 1.9 (1.9)\nmacOS Version 27.0\n"))
+        #expect(!header.contains(NSUserName()))
+        let line = "3   scrap   0x0000000104a2c3f8 $s5scrap11ContentViewV4bodyQrvg + 120"
+        let readable = CrashReporter.demangled(line)
+        #expect(readable.contains("scrap.ContentView.body"))
+        #expect(readable.hasPrefix("3   scrap   0x0000000104a2c3f8 "))
+        #expect(CrashReporter.demangled("no symbols here") == "no symbols here")
+    }
+
+    @Test func crashReportLinksToAPrefilledIssue() throws {
+        let report = CrashReport(text: "scrap 1.9 (1.9)\nmacOS 27.0\n\nSignal: SIGTRAP (Swift runtime error)\n\nBacktrace:\n" + String(repeating: "frame\n", count: 3000),
+                                 date: Date())
+        #expect(report.summary == "Signal: SIGTRAP (Swift runtime error)")
+        let url = report.issueURL()
+        let items = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        #expect(url.absoluteString.hasPrefix("https://github.com/swagdotsh/scrap/issues/new?"))
+        #expect(items.first { $0.name == "title" }?.value == "Crash: Signal: SIGTRAP (Swift runtime error)")
+        let body = try #require(items.first { $0.name == "body" }?.value)
+        #expect(body.contains("report shortened"))
+        #expect(body.count < 6500)
+    }
+
     @Test func environmentParserHandlesQuotesAndEquals() {
         let values = AppConfiguration.parse("# ignored\nLASTFM_API_KEY = 'abc=123'\nLASTFM_SHARED_SECRET=\"secret\"\n")
         #expect(values["LASTFM_API_KEY"] == "abc=123")
         #expect(values["LASTFM_SHARED_SECRET"] == "secret")
+    }
+
+    @Test func spotifyArtistImagePicksExactMatchAtUsableSize() throws {
+        let json = """
+        {"artists":{"items":[
+          {"name":"Bjork Tribute","images":[{"url":"https://i.scdn.co/image/wrong","width":640,"height":640}]},
+          {"name":"Björk","images":[
+            {"url":"https://i.scdn.co/image/large","width":640,"height":640},
+            {"url":"https://i.scdn.co/image/medium","width":320,"height":320},
+            {"url":"https://i.scdn.co/image/small","width":160,"height":160}]}
+        ]}}
+        """
+        let results = try JSONDecoder().decode(SpotifyArtistSearchResponse.self, from: Data(json.utf8))
+        #expect(results.imageURL(for: "bjork")?.absoluteString == "https://i.scdn.co/image/medium")
+        #expect(results.imageURL(for: "Unknown Artist") == nil)
+    }
+
+    @Test func artistImageCacheExpiresAfter24Hours() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = ArtistImageDiskCache(directory: directory)
+        await cache.store(Data([1, 2, 3]), for: "artist")
+        await cache.store(nil, for: "nobody")
+        guard case .image(let data, _) = await cache.read("artist") else { Issue.record("image not cached"); return }
+        #expect(data == Data([1, 2, 3]))
+        guard case .noImage = await cache.read("nobody") else { Issue.record("missing image not remembered"); return }
+        #expect(await cache.read("artist", now: Date().addingTimeInterval(24 * 60 * 60 + 1)) == nil)
+        #expect(await cache.read("artist") == nil)
     }
 
     @Test func listeningHistoryDistinguishesZeroAndUnavailable() {

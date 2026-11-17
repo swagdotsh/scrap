@@ -14,7 +14,6 @@ enum DiscordStatusSource: String, CaseIterable, Identifiable {
         case .app: "App name"
         }
     }
-    /// Discord's `status_display_type`: 0 = name, 1 = state, 2 = details.
     var discordValue: Int {
         switch self {
         case .app: 0
@@ -91,7 +90,6 @@ enum DiscordKey {
     static let button2 = "discordButton2"
     static let button2Label = "discordButton2Label"
 
-    /// A service's own copy of a setting, used when that service has separate settings turned on.
     static func scoped(_ key: String, _ service: PlaybackService?) -> String {
         service.map { "\(key).\($0.rawValue)" } ?? key
     }
@@ -124,8 +122,6 @@ struct DiscordPresenceSettings: Equatable {
         return defaults.object(forKey: DiscordKey.show(service)) as? Bool ?? true
     }
 
-    /// Global settings, or a service's own settings when it has them turned on. A service setting that
-    /// was never changed falls back to the global one.
     static func load(for service: PlaybackService? = nil, _ defaults: UserDefaults = .standard) -> Self {
         let scope = service.flatMap { defaults.bool(forKey: DiscordKey.customSettings($0)) ? $0 : nil }
         func string(_ key: String) -> String? {
@@ -181,7 +177,6 @@ struct DiscordActivity: Equatable {
     var end: Date?
     var buttons: [Button] = []
 
-    /// The text shown after "Listening to" in member lists and on your profile.
     func statusText(appName: String) -> String {
         switch statusSource {
         case .state: state ?? appName
@@ -229,7 +224,6 @@ struct DiscordActivity: Equatable {
             activity.start = startedAt
             if let duration = track.duration, duration > 0 { activity.end = startedAt.addingTimeInterval(duration) }
         }
-        // [untitled] projects aren't on streaming services or last.fm pages people can open.
         guard info.source != .untitled else { return activity }
         var used = Set<URL>()
         for (kind, label) in [(settings.button1, settings.button1Label), (settings.button2, settings.button2Label)] {
@@ -254,8 +248,6 @@ struct DiscordActivity: Equatable {
         }
     }
 
-    /// Fills `{title}`, `{artist}`, `{album}` and `{service}`. A line that uses a token with no value
-    /// (for example `on {album}` for a song without an album) is left out entirely.
     static func format(_ template: String, _ info: DiscordTrackInfo) -> String {
         let values = ["{title}": info.track.title, "{artist}": info.track.artist,
                       "{album}": info.track.album, "{service}": info.service ?? ""]
@@ -272,7 +264,6 @@ struct DiscordActivity: Equatable {
         return trimmed.isEmpty ? nil : clamp(trimmed, limit: 128)
     }
 
-    /// Discord requires 2–128 characters for text fields and at most 32 for button labels.
     static func clamp(_ value: String, limit: Int) -> String {
         var result = value
         if result.count > limit { result = String(result.prefix(limit - 1)) + "…" }
@@ -285,8 +276,6 @@ struct DiscordActivity: Equatable {
 
 @MainActor
 final class DiscordPresence: ObservableObject {
-    /// The Discord application scrap's activity is published under (discord.com/developers),
-    /// set with DISCORD_APPLICATION_ID in `.env`.
     static let applicationID = AppConfiguration.load().discordApplicationID
         .filter(\.isNumber)
     static let discordBundleIDs = ["com.hnc.Discord", "com.hnc.DiscordPTB", "com.hnc.DiscordCanary"]
@@ -314,7 +303,7 @@ final class DiscordPresence: ObservableObject {
 
     private let client: LastFMClient
     private let connection = DiscordIPCConnection()
-    private var settings = DiscordPresenceSettings.load()  // for the service currently playing
+    private var settings = DiscordPresenceSettings.load()
     private var enabled = UserDefaults.standard.bool(forKey: DiscordKey.enabled)
     private var trackKey: String?
     private var currentRawTrack: PlayingTrack?
@@ -340,7 +329,6 @@ final class DiscordPresence: ObservableObject {
         refreshStatus()
     }
 
-    /// Called by the listener about once a second.
     func update(track: PlayingTrack?, source: PlaybackService?, isPlaying playing: Bool, position: TimeInterval, trackID: String?) {
         guard let track else {
             if info != nil { info = nil; trackKey = nil; currentRawTrack = nil; startedAt = nil; lookupTask?.cancel() }
@@ -403,7 +391,6 @@ final class DiscordPresence: ObservableObject {
             status = .off
             refreshStatus()
         }
-        // Scrobble cleanup options live in other defaults keys, so recompute the shown names on any change.
         if let raw = currentRawTrack, let current = info?.track {
             let display = displayTrack(raw)
             if display != current { info?.track = display }
@@ -477,7 +464,6 @@ final class DiscordPresence: ObservableObject {
         return DiscordActivity.build(info: info, settings: settings, isPlaying: isPlaying, startedAt: startedAt)
     }
 
-    /// Discord allows about five activity updates per 20 seconds, so updates are spaced out and coalesced.
     private func scheduleSend() {
         let activity = currentActivity
         if let lastSent, lastSent == activity { pendingSend?.cancel(); pendingSend = nil; return }
@@ -533,13 +519,10 @@ final class DiscordPresence: ObservableObject {
         }
     }
 
-    /// last.fm covers are shared per album; Music app artwork can differ per track.
     private func coverKey(_ track: PlayingTrack, key: String) -> String {
         settings.coverSource == .musicApp ? "app\u{1F}" + key : Self.albumKey(track)
     }
 
-    /// Spotify exposes a web link to its artwork. Apple Music only gives the image itself, and Discord
-    /// can only show images from a public link, so the artwork is uploaded to Litterbox (expires after 72 hours).
     private func musicAppCoverURL(source: PlaybackService?, trackID: String?) async -> URL? {
         switch source {
         case .spotify:
@@ -570,7 +553,6 @@ final class DiscordPresence: ObservableObject {
         return error == nil ? result : nil
     }
 
-    /// Re-encodes artwork as a JPEG no larger than 512 px so uploads stay small.
     nonisolated static func coverJPEG(_ data: Data, maxPixels: Int = 512) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -581,7 +563,6 @@ final class DiscordPresence: ObservableObject {
         return NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.85])
     }
 
-    /// Uploads each distinct image once and reuses the link until shortly before Litterbox expires it.
     private func uploadedCoverURL(_ jpeg: Data) async -> URL? {
         let hash = SHA256.hash(data: jpeg).map { String(format: "%02x", $0) }.joined()
         let lifetime: TimeInterval = 70 * 3600
@@ -597,6 +578,10 @@ final class DiscordPresence: ObservableObject {
         return url
     }
 
+    nonisolated static func litterboxFilename(_ jpeg: Data) -> String {
+        "scrap-" + SHA256.hash(data: jpeg).prefix(8).map { String(format: "%02x", $0) }.joined() + ".jpg"
+    }
+
     nonisolated static func litterboxRequest(_ jpeg: Data, boundary: String = UUID().uuidString) -> URLRequest {
         var request = URLRequest(url: URL(string: "https://litterbox.catbox.moe/resources/internals/api.php")!)
         request.httpMethod = "POST"
@@ -606,7 +591,7 @@ final class DiscordPresence: ObservableObject {
         for (name, value) in [("reqtype", "fileupload"), ("time", "72h")] {
             body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
         }
-        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"cover.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"\(litterboxFilename(jpeg))\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
         body.append(jpeg)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
         request.httpBody = body
@@ -633,8 +618,6 @@ final class DiscordPresence: ObservableObject {
            let album = (json["track"] as? [String: Any])?["album"] as? [String: Any] {
             candidates = ArtworkCandidates.urls(album["image"])
         }
-        // Prefer a still image that actually loads; Discord fetches the URL itself. last.fm lists the same
-        // file at several sizes, so each distinct image is only checked once.
         var checked = Set<String>()
         var animated: URL?
         for url in candidates where checked.insert(url.lastPathComponent).inserted {
@@ -643,7 +626,6 @@ final class DiscordPresence: ObservableObject {
             if !ArtworkCandidates.isAnimated(data) { return url }
             if animated == nil { animated = url }
         }
-        // Some albums only have an animated cover; Discord gets its first frame as a JPEG instead.
         if let animated, let frozen = Self.frozenCoverURL(animated), !Task.isCancelled,
            let data = await Self.fetchImage(frozen), ArtworkCandidates.stillImage(data) != nil {
             return frozen
@@ -659,7 +641,6 @@ final class DiscordPresence: ObservableObject {
         return data
     }
 
-    /// The first frame of an animated cover as a JPEG, via the wsrv.nl image proxy.
     nonisolated static func frozenCoverURL(_ url: URL) -> URL? {
         var components = URLComponents(string: "https://wsrv.nl/")!
         components.queryItems = [
@@ -670,8 +651,6 @@ final class DiscordPresence: ObservableObject {
         return components.url
     }
 
-    /// The exact track when it's playing in Spotify; otherwise a Spotify search, since matching another
-    /// service's song to Spotify needs Spotify API credentials.
     nonisolated static func spotifyURL(for track: PlayingTrack, source: PlaybackService?, trackID: String?) -> URL? {
         if source == .spotify, let id = trackID, id.hasPrefix("spotify:track:") {
             let trackPart = id.dropFirst("spotify:track:".count)
@@ -691,8 +670,6 @@ final class DiscordPresence: ObservableObject {
         return URL(string: "https://song.link/s/\(id)")
     }
 
-    /// Looks the song up in Apple's public catalog search (no developer account needed) for its
-    /// Apple Music page and song.link ID. Spotify songs use their own ID for song.link.
     private static func musicLinks(for track: PlayingTrack, source: PlaybackService?, trackID: String?) async -> (songLink: URL?, appleMusic: URL?) {
         let match = await iTunesMatch(for: track)
         let spotifyLink = source == .spotify ? songLinkURL(spotifyID: trackID) : nil
@@ -700,7 +677,6 @@ final class DiscordPresence: ObservableObject {
         return (spotifyLink ?? catalogLink, match.flatMap(appleMusicURL))
     }
 
-    /// `trackViewUrl` with tracking parameters removed, keeping `i` (the song within the album).
     nonisolated static func appleMusicURL(_ match: [String: Any]) -> URL? {
         guard let raw = match["trackViewUrl"] as? String, var components = URLComponents(string: raw),
               components.scheme == "https", components.host?.hasSuffix("apple.com") == true else { return nil }

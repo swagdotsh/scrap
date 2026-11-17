@@ -43,6 +43,8 @@ def main():
         raise ValueError("Set CURRENT_PROJECT_VERSION and MARKETING_VERSION to the same release version.")
     config = plistlib.loads((ROOT / "Config/Info.plist").read_bytes())
     for key, value in config.items():
+        if isinstance(value, str) and re.fullmatch(r"\$\([A-Za-z0-9_]+\)", value):
+            continue
         if info.get(key) != value:
             raise ValueError(f"The built app's {key} does not match Config/Info.plist. Rebuild first.")
     if info["CFBundleIdentifier"] != ACCOUNT:
