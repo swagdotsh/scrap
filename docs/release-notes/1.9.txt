@@ -1,0 +1,25 @@
+## Accounts
+- Save up to 5 last.fm accounts and switch between them in **Settings → last.fm Accounts**. scrap scrobbles to the selected account.
+- Remove a single account, or remove all of them from your Mac's Keychain at once.
+
+## Now Playing
+- When nothing is playing on this Mac, Now Playing shows what you're playing on another device, according to last.fm.
+- Artist images now come from Spotify.
+
+## [untitled]
+- Fixed [untitled] scrobbling.
+- macOS forgets scrap's Accessibility permission after each update. scrap now tells you when [untitled] needs permission again and walks you through allowing it.
+
+## Discord Rich Presence
+- Fixed Apple Music custom covers sometimes not showing on Discord.
+
+## Reports
+- Fixed the **Listening clock** showing no bars.
+
+## Connection status
+- The bottom of the window now says **No internet connection** when you're offline, and **Connected, can't communicate with last.fm** (with an orange light) when last.fm can't be reached.
+
+## Crash reports
+- If scrap quits unexpectedly, it shows a report the next time it opens. You can review and edit it before reporting it on GitHub. Nothing is sent automatically, and it doesn't include your last.fm account or what you were listening to.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.8...v1.9

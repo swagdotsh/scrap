@@ -3,6 +3,41 @@
     <channel>
         <title>scrap</title>
         <item>
+            <title>1.9</title>
+            <pubDate>Tue, 17 Nov 2026 10:16:41 +0100</pubDate>
+            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.9</link>
+            <sparkle:version>1.9</sparkle:version>
+            <sparkle:shortVersionString>1.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <description sparkle:format="plain-text"><![CDATA[## Accounts
+- Save up to 5 last.fm accounts and switch between them in **Settings → last.fm Accounts**. scrap scrobbles to the selected account.
+- Remove a single account, or remove all of them from your Mac's Keychain at once.
+
+## Now Playing
+- When nothing is playing on this Mac, Now Playing shows what you're playing on another device, according to last.fm.
+- Artist images now come from Spotify.
+
+## [untitled]
+- Fixed [untitled] scrobbling.
+- macOS forgets scrap's Accessibility permission after each update. scrap now tells you when [untitled] needs permission again and walks you through allowing it.
+
+## Discord Rich Presence
+- Fixed Apple Music custom covers sometimes not showing on Discord.
+
+## Reports
+- Fixed the **Listening clock** showing no bars.
+
+## Connection status
+- The bottom of the window now says **No internet connection** when you're offline, and **Connected, can't communicate with last.fm** (with an orange light) when last.fm can't be reached.
+
+## Crash reports
+- If scrap quits unexpectedly, it shows a report the next time it opens. You can review and edit it before reporting it on GitHub. Nothing is sent automatically, and it doesn't include your last.fm account or what you were listening to.
+
+**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.8...v1.9
+]]></description>
+            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.9/scrap-v1.9-universal.zip" length="5362078" type="application/octet-stream" sparkle:edSignature="qsWemAOmsj/9wan0PfQEbAv2JUZQIEAIdB3i22daCAlZRyfkQQOVKztWZ/HBGZAnvp8nJOLB0eVNb679crbwCA=="/>
+        </item>
+        <item>
             <title>1.8</title>
             <pubDate>Wed, 11 Nov 2026 14:01:05 +0100</pubDate>
             <link>https://github.com/swagdotsh/scrap/releases/tag/v1.8</link>
@@ -78,26 +113,6 @@
 **Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.6...v1.7
 ]]></description>
             <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.7/scrap-v1.7-universal.zip" length="4030819" type="application/octet-stream" sparkle:edSignature="3xF1RnU8M9y0+/inPHSBiio3x9GFXeJnvtJmGgx7twqLEjlF6RWe9mLsmGHtQvkn9sRXitF9upT/zHj/WNVgBA=="/>
-        </item>
-        <item>
-            <title>1.6</title>
-            <pubDate>Wed, 14 Oct 2026 14:01:12 +0200</pubDate>
-            <link>https://github.com/swagdotsh/scrap/releases/tag/v1.6</link>
-            <sparkle:version>1.6</sparkle:version>
-            <sparkle:shortVersionString>1.6</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <description sparkle:format="plain-text"><![CDATA[## Now Playing
-- Added a heart beside the track name showing whether it is loved on last.fm. Click it to love or unlove the track without changing Apple Music favorites.
-
-## Settings
-- Added **Love favorited songs (Apple Music)** to automatically love the current song on last.fm when it is favorited in Apple Music, including favorites added during playback.
-
-## Menu bar
-- The scrap popup now closes when you click outside it, including clicks in other scrap windows.
-
-**Full Changelog**: https://github.com/swagdotsh/scrap/compare/v1.5...v1.6
-]]></description>
-            <enclosure url="https://github.com/swagdotsh/scrap/releases/download/v1.6/scrap-v1.6-universal.zip" length="3587834" type="application/octet-stream" sparkle:edSignature="xiPWRdYdOrZ4Nyf2TFrq4m6XJuXTv/kRKOmMMn0XRK5i9t1RVB0JS3GGY7cbc/vTLYYuclaXuaYbucOquaWcBw=="/>
         </item>
     </channel>
 </rss>
