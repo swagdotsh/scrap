@@ -119,7 +119,8 @@ struct ListeningClockChart: View {
 
     var body: some View {
         Chart(Array(hourly.enumerated()), id: \.offset) { hour, count in
-            BarMark(x: .value("Hour", hour), y: .value("Scrobbles", count), width: .ratio(0.7))
+            RectangleMark(xStart: .value("Hour", Double(hour) - 0.35), xEnd: .value("Hour", Double(hour) + 0.35),
+                          yStart: .value("Scrobbles", 0), yEnd: .value("Scrobbles", count))
                 .foregroundStyle(hour == peak ? Color.accentColor : Color.accentColor.opacity(0.35))
                 .accessibilityLabel(Self.hourLabel(hour))
                 .accessibilityValue("\(count) scrobbles")
