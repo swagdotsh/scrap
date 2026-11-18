@@ -10,7 +10,34 @@ Versions before 1.4 still open GitHub and need one final manual installation. Pu
 
 This signature authenticates the update archive; it is separate from Apple Developer ID signing and notarization. The current build uses ad-hoc Apple signing. Sparkle verifies the archive signature before extraction. Its installer XPC service and sandbox communication entitlements are enabled because scrap is sandboxed.
 
-## Prepare a release
+## Automated release (GitHub Actions)
+
+`.github/workflows/release-macos.yml` builds and publishes a release when you push a version tag. It never changes the live feed on its own: it opens a pull request for `appcast.xml`, and users get the update only when you merge it.
+
+### One-time setup
+
+1. Export the signing key and save it as a repository secret, then delete the exported file:
+
+   ```sh
+   build/Release/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys \
+     --account com.swagrelated.scrap -x /tmp/scrap-sparkle-key
+   gh secret set SPARKLE_ED_PRIVATE_KEY < /tmp/scrap-sparkle-key
+   rm /tmp/scrap-sparkle-key
+   ```
+
+2. Turn on **Settings → Actions → General → Allow GitHub Actions to create and approve pull requests**. Without it, the run still publishes the release and pushes the feed branch, and its summary links to a page where you can open the pull request yourself.
+3. scrap needs Xcode 27 or newer. The workflow uses the newest Xcode on the `macos-26` runner. If that runner doesn't have Xcode 27 yet, set the repository variable `MACOS_RUNNER` to another runner label (for example a self-hosted Mac), and optionally `XCODE_PATH` to the Xcode to use (for example `/Applications/Xcode.app`).
+
+### Each release
+
+1. Set `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` to the new version (see below), and add `docs/release-notes/<version>.txt`.
+2. Commit, then tag and push: `git tag v2.0 && git push origin v2.0`.
+3. The workflow builds the universal app, signs the update with the secret key, and checks it against the app's public key. It then creates the `v<version>` GitHub release with the ZIP and checksum (or adds them to an existing release, such as one the Windows build created), checks that the uploaded ZIP matches, and opens a pull request that adds the version to the live feed on `main`.
+4. Test the release ZIP as described below, then merge the pull request.
+
+To retry a failed run, use **Run workflow** on the Actions tab with the tag. If the release already has the macOS ZIP, delete that asset first.
+
+## Prepare a release manually
 
 1. Set **both** `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in the app's Debug and Release configurations to the new version (for example, `1.4.1`). Sparkle compares `CFBundleVersion`; do not leave the build number unchanged.
 2. Build a universal Release app with the project's normal signing enabled:

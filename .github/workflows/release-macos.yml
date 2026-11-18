@@ -1,0 +1,165 @@
+name: Release macOS
+
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build, for example v2.0
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-macos
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, publish release, open feed PR
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check tag
+        shell: bash
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::$TAG is not a macOS release tag like v2.0 or v2.0.1."
+            exit 1
+          fi
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+
+      - name: Check release notes and signing key
+        shell: bash
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [[ ! -s "docs/release-notes/$VERSION.txt" ]]; then
+            echo "::error::Add docs/release-notes/$VERSION.txt to the tagged commit."
+            exit 1
+          fi
+          if [[ -z "$SPARKLE_ED_PRIVATE_KEY" ]]; then
+            echo "::error::Add the SPARKLE_ED_PRIVATE_KEY repository secret."
+            exit 1
+          fi
+
+      - name: Select Xcode
+        shell: bash
+        env:
+          XCODE_PATH: ${{ vars.XCODE_PATH }}
+        run: |
+          xcode="$XCODE_PATH"
+          if [[ -z "$xcode" ]]; then
+            xcode=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc' | sort -V | tail -1 || true)
+          fi
+          if [[ -n "$xcode" ]]; then
+            echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+            export DEVELOPER_DIR="$xcode/Contents/Developer"
+          fi
+          xcodebuild -version
+          major=$(xcodebuild -version | awk 'NR==1 { split($2, part, "."); print part[1] }')
+          if (( major < 27 )); then
+            echo "::error::scrap needs Xcode 27 or newer (the macOS 27 SDK). Set the XCODE_PATH or MACOS_RUNNER repository variable."
+            exit 1
+          fi
+
+      - name: Build universal Release app
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project scrap.xcodeproj -scheme scrap -configuration Release \
+            -derivedDataPath build/Release -destination 'generic/platform=macOS' \
+            'ARCHS=arm64 x86_64' ONLY_ACTIVE_ARCH=NO build
+          built=$(plutil -extract CFBundleShortVersionString raw build/Release/Build/Products/Release/scrap.app/Contents/Info.plist)
+          if [[ "$built" != "$VERSION" ]]; then
+            echo "::error::The app's version is $built but the tag is $TAG. Update MARKETING_VERSION and CURRENT_PROJECT_VERSION."
+            exit 1
+          fi
+
+      - name: Prepare signed update from the live feed
+        shell: bash
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          git fetch origin main
+          git show origin/main:appcast.xml > appcast.xml
+          key="$RUNNER_TEMP/sparkle-key"
+          trap 'rm -f "$key"' EXIT
+          (umask 077 && printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$key")
+          python3 scripts/prepare-update.py \
+            --app build/Release/Build/Products/Release/scrap.app \
+            --sparkle-tools build/Release/SourcePackages/artifacts/sparkle/Sparkle/bin \
+            --notes "docs/release-notes/$VERSION.txt" \
+            --ed-key-file "$key"
+
+      - name: Publish GitHub release
+        shell: bash
+        run: |
+          dir="Releases/$VERSION"
+          name="scrap-v$VERSION-universal.zip"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qxF "$name"; then
+              echo "::error::Release $TAG already has $name. Delete that asset to rebuild it."
+              exit 1
+            fi
+            gh release upload "$TAG" "$dir/$name" "$dir/$name.sha256"
+          else
+            gh release create "$TAG" "$dir/$name" "$dir/$name.sha256" \
+              --verify-tag --title "$TAG" --notes-file "docs/release-notes/$VERSION.txt"
+          fi
+          expected=$(cut -d ' ' -f 1 "$dir/$name.sha256")
+          for attempt in 1 2 3 4 5; do
+            actual=$(curl -fsSL "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$name" | shasum -a 256 | cut -d ' ' -f 1 || true)
+            [[ "$actual" == "$expected" ]] && break
+            sleep 10
+          done
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::The published $name does not match the signed archive. The feed was not changed."
+            exit 1
+          fi
+
+      - name: Open feed pull request
+        shell: bash
+        run: |
+          branch="release/appcast-$TAG"
+          feed="$RUNNER_TEMP/feed"
+          git worktree prune
+          git worktree add -B "$branch" "$feed" origin/main
+          cp "Releases/$VERSION/appcast.xml" "$feed/appcast.xml"
+          cd "$feed"
+          git add appcast.xml
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "scrap $VERSION: publish update feed"
+          git push --force origin "$branch"
+          url=$(gh pr list --head "$branch" --base main --state open --json url --jq '.[0].url // empty')
+          if [[ -z "$url" ]]; then
+            url=$(gh pr create --base main --head "$branch" \
+              --title "scrap $VERSION: publish update feed" \
+              --body "Adds $TAG to the Sparkle feed. Merging this sends the update to every macOS user with automatic checks on.
+
+          Before merging, test [the release archive](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG): update from an older build using a disposable copy, and check that accounts, settings, the menu bar and login startup survive.
+
+          Built by [this run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).") || url=""
+          fi
+          gh workflow run platform-branch-guard.yml --ref "$branch"
+          if [[ -z "$url" ]]; then
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch?expand=1"
+            echo "::warning::Actions can't open pull requests in this repository. Open the feed PR yourself: $url"
+          fi
+          echo "Feed pull request: $url" >> "$GITHUB_STEP_SUMMARY"
