@@ -32,9 +32,17 @@ def main():
     parser.add_argument("--app", type=Path, required=True, help="Built universal Release .app")
     parser.add_argument("--sparkle-tools", type=Path, required=True, help="Sparkle artifact bin directory")
     parser.add_argument("--notes", type=Path, help="Optional plain-text release notes")
+    parser.add_argument("--ed-key-file", type=Path, help="Private Sparkle key file, instead of the Keychain (for CI)")
     args = parser.parse_args()
     app = args.app.resolve()
     tools = args.sparkle_tools.resolve()
+    if args.ed_key_file:
+        key_file = args.ed_key_file.resolve()
+        if not key_file.is_file():
+            raise ValueError(f"{key_file} does not exist.")
+        signing = ["--ed-key-file", key_file]
+    else:
+        signing = ["--account", ACCOUNT]
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     version = info["CFBundleShortVersionString"]
     build = info["CFBundleVersion"]
@@ -49,9 +57,10 @@ def main():
             raise ValueError(f"The built app's {key} does not match Config/Info.plist. Rebuild first.")
     if info["CFBundleIdentifier"] != ACCOUNT:
         raise ValueError("This is not a scrap release bundle.")
-    public_key = run(tools / "generate_keys", "--account", ACCOUNT, "-p")
-    if public_key != info["SUPublicEDKey"]:
-        raise ValueError("The signing key in Keychain does not match the app's public key.")
+    if not args.ed_key_file:
+        public_key = run(tools / "generate_keys", "--account", ACCOUNT, "-p")
+        if public_key != info["SUPublicEDKey"]:
+            raise ValueError("The signing key in Keychain does not match the app's public key.")
     architectures = run("lipo", "-archs", app / "Contents/MacOS" / info["CFBundleExecutable"]).split()
     if not {"arm64", "x86_64"}.issubset(architectures):
         raise ValueError("Build both arm64 and x86_64 before preparing a universal release.")
@@ -74,7 +83,7 @@ def main():
             shutil.copy2(feed, staging / "appcast.xml")
         if args.notes:
             shutil.copy2(args.notes, archive.with_suffix(".txt"))
-        run(tools / "generate_appcast", "--account", ACCOUNT,
+        run(tools / "generate_appcast", *signing,
             "--download-url-prefix", f"https://github.com/swagdotsh/scrap/releases/download/v{version}/",
             "--link", f"https://github.com/swagdotsh/scrap/releases/tag/v{version}",
             "--embed-release-notes", "--maximum-deltas", "0", staging)
@@ -82,10 +91,16 @@ def main():
         entries = ET.parse(candidate).findall("./channel/item")
         entry = next(item for item in entries if item.findtext(f"{{{SPARKLE}}}version") == build)
         enclosure = entry.find("enclosure")
-        signature = enclosure.attrib[f"{{{SPARKLE}}}edSignature"]
+        signature = enclosure.attrib.get(f"{{{SPARKLE}}}edSignature")
+        if not signature:
+            raise ValueError("Sparkle didn't sign the archive: the signing key doesn't match the app's SUPublicEDKey.")
         if int(enclosure.attrib["length"]) != archive.stat().st_size:
             raise ValueError("The feed's archive size is incorrect.")
-        run(tools / "sign_update", "--account", ACCOUNT, "--verify", archive, signature)
+        run(tools / "sign_update", *signing, "--verify", archive, signature)
+        try:
+            run("xcrun", "swift", ROOT / "scripts/verify-ed-signature.swift", info["SUPublicEDKey"], signature, archive)
+        except subprocess.CalledProcessError:
+            raise ValueError("The archive's signature does not match the app's public key.") from None
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         archive.with_suffix(".zip.sha256").write_text(f"{digest}  {archive.name}\n")
         output.mkdir()
