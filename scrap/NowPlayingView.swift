@@ -63,8 +63,8 @@ struct NowPlayingView: View {
                 } header: {
                     if isRemote {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Now playing from another device").font(.headline).foregroundStyle(.primary)
-                            Text("Reported from last.fm. This isn't coming from this device.")
+                            Text("Now playing from another scrobbler").font(.headline).foregroundStyle(.primary)
+                            Text("Reported from last.fm. This isn't coming from scrap.")
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
                         .textCase(nil)
