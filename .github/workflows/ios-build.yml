@@ -1,0 +1,60 @@
+name: iOS build
+
+on:
+  push:
+    branches: [ios]
+  pull_request:
+    branches: [ios]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build app and tests
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        env:
+          XCODE_PATH: ${{ vars.XCODE_PATH }}
+        run: |
+          xcode="$XCODE_PATH"
+          if [[ -z "$xcode" ]]; then
+            xcode=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc' | sort -V | tail -1 || true)
+          fi
+          if [[ -n "$xcode" ]]; then
+            echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+            export DEVELOPER_DIR="$xcode/Contents/Developer"
+          fi
+          xcodebuild -version
+          major=$(xcodebuild -version | awk 'NR==1 { split($2, part, "."); print part[1] }')
+          if (( major < 27 )); then
+            echo "::error::scrap needs Xcode 27 or newer. Set the XCODE_PATH or MACOS_RUNNER repository variable."
+            exit 1
+          fi
+
+      - name: Build app, widgets and tests
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/build.log"
+          if ! xcodebuild build-for-testing \
+            -project scrap.xcodeproj \
+            -scheme scrap \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO > "$log" 2>&1; then
+            grep -E 'error:' "$log" | sort -u | sed 's/^/::error::/' || true
+            tail -40 "$log"
+            exit 1
+          fi
+          grep -E 'warning:' "$log" | sort -u || true
+          tail -1 "$log"
