@@ -17,10 +17,10 @@ concurrency:
 jobs:
   build:
     name: Build app and tests
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    runs-on: ${{ vars.IOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Select Xcode
         shell: bash
@@ -38,7 +38,7 @@ jobs:
           xcodebuild -version
           major=$(xcodebuild -version | awk 'NR==1 { split($2, part, "."); print part[1] }')
           if (( major < 27 )); then
-            echo "::error::scrap needs Xcode 27 or newer. Set the XCODE_PATH or MACOS_RUNNER repository variable."
+            echo "::error::scrap needs Xcode 27 or newer. Set the XCODE_PATH or IOS_RUNNER repository variable."
             exit 1
           fi
 
