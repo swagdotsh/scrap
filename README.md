@@ -1,6 +1,5 @@
 <div align="center">
-<img width="219" height="450" alt="ios1" src="https://github.com/user-attachments/assets/2bf52a25-c464-4e7e-a0f3-548d01105ab8" />
-
+<img width="219" height="450" alt="ios1" src="https://github.com/user-attachments/assets/c8a9e6db-d592-4555-bbd9-1d584492032b" />
 
 # scrap for iPhone
 
