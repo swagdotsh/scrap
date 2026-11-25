@@ -1,10 +1,11 @@
 import Foundation
 
 enum ChartPeriod: String, CaseIterable, Identifiable {
-    case week = "7day", month = "1month", sixMonths = "6month", thisYear, year = "12month", overall
+    case day = "24hour", week = "7day", month = "1month", sixMonths = "6month", thisYear, year = "12month", overall
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .day: "Last 24 hours"
         case .week: "Last 7 days"
         case .month: "Last 30 days"
         case .sixMonths: "Last 6 months"
@@ -14,9 +15,12 @@ enum ChartPeriod: String, CaseIterable, Identifiable {
         }
     }
 
-    var calendarYearStart: Date? {
-        guard self == .thisYear else { return nil }
-        return Calendar.current.dateInterval(of: .year, for: Date())?.start
+    var customRangeStart: Date? {
+        switch self {
+        case .day: Date().addingTimeInterval(-24 * 3600)
+        case .thisYear: Calendar.current.dateInterval(of: .year, for: Date())?.start
+        default: nil
+        }
     }
 }
 
@@ -59,8 +63,8 @@ extension LastFMClient {
         guard let username else { return [] }
         let singular = String(kind.rawValue.dropLast())
         var entries: [ProfileChartEntry]
-        if let start = period.calendarYearStart {
-            entries = Array(try await yearToDateChart(kind, user: username, from: start).prefix(limit))
+        if let start = period.customRangeStart {
+            entries = Array(try await rangeChart(kind, period: period, user: username, from: start).prefix(limit))
         } else {
             let method = "user.getTop" + kind.rawValue.capitalized
             let json = try await request(["method": method, "user": username, "period": period.rawValue, "limit": String(limit)])
@@ -82,9 +86,9 @@ extension LastFMClient {
         return entries
     }
 
-    private func yearToDateChart(_ kind: ChartKind, user: String, from start: Date) async throws -> [ProfileChartEntry] {
+    private func rangeChart(_ kind: ChartKind, period: ChartPeriod, user: String, from start: Date) async throws -> [ProfileChartEntry] {
         let singular = String(kind.rawValue.dropLast())
-        let key = "\(user.lowercased())|\(kind.rawValue)|\(Int(start.timeIntervalSince1970))"
+        let key = "\(user.lowercased())|\(kind.rawValue)|\(period.rawValue)"
         if let cached = YearChartCache.entries[key], Date().timeIntervalSince(cached.fetched) < YearChartCache.lifetime {
             return cached.entries
         }
