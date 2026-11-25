@@ -32,6 +32,24 @@ struct ArtistDetails {
     var topTracks: [MusicLink] = []
     var topAlbums: [MusicLink] = []
 
+    static func distinctAlbums(_ albums: [MusicLink], artist: String) -> [MusicLink] {
+        func base(_ name: String) -> String {
+            name.replacingOccurrences(of: "\\s*[\\[(][^\\])]*[\\])]", with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces).lowercased()
+        }
+        let artist = artist.lowercased()
+        var kept: [String] = []
+        return albums.filter { album in
+            let name = base(album.name)
+            let isVariant = kept.contains { earlier in
+                name == earlier || (name.hasPrefix(earlier + " ") && name.dropFirst(earlier.count).contains(artist))
+            }
+            guard !isVariant else { return false }
+            kept.append(name)
+            return true
+        }
+    }
+
     static func plainBiography(_ html: String) -> String {
         let stripped = html.replacingOccurrences(of: "<a\\b[^>]*>.*?</a>", with: "", options: [.regularExpression, .caseInsensitive])
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)

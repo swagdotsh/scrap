@@ -40,7 +40,7 @@ private struct ChartGalleryView: View {
                 ForEach(Array((entries ?? []).enumerated()), id: \.element.id) { index, entry in
                     Link(destination: entry.link.url) { cell(entry, rank: index + 1) }
                         .buttonStyle(.plain)
-                        .help("Open \(entry.link.name) on last.fm")
+                        .help("Open \(entry.link.name)")
                 }
             }
             .padding(20)
@@ -50,6 +50,7 @@ private struct ChartGalleryView: View {
             else if entries?.isEmpty == true { Text("Nothing scrobbled in this period.").foregroundStyle(.secondary) }
         }
         .frame(minWidth: 420, minHeight: 320)
+        .musicPages(client: client)
         .task { await load() }
     }
 
@@ -107,8 +108,10 @@ private struct GalleryArtwork: View {
             }
         }
         .task(id: entry.id) {
-            guard kind == .tracks, entry.link.imageURL == nil else { return }
-            trackCovers = await client.trackArtwork(artist: entry.artist, track: entry.link.name)
+            guard kind != .artists, entry.link.imageURL == nil else { return }
+            trackCovers = kind == .tracks
+                ? await client.trackArtwork(artist: entry.artist, track: entry.link.name)
+                : await client.albumArtwork(artist: entry.artist, album: entry.link.name)
         }
     }
 }

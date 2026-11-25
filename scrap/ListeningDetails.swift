@@ -42,6 +42,9 @@ struct ListenerProfile {
     let url: URL?
     var avatarURL: URL? = nil
     var registered: Date? = nil
+    var artistCount: Int? = nil
+    var albumCount: Int? = nil
+    var trackCount: Int? = nil
 }
 
 extension LastFMClient {
@@ -105,9 +108,15 @@ extension LastFMClient {
                 }
             }
             if !Task.isCancelled,
-               let json = try? await request(["method": "artist.getTopAlbums", "artist": track.artist, "limit": "3"]),
+               let json = try? await request(["method": "artist.getTopAlbums", "artist": track.artist, "limit": "10"]),
                let root = json["topalbums"] as? [String: Any] {
-                details.artist.topAlbums = MusicLink.parse(root["album"], limit: 3)
+                details.artist.topAlbums = Array(ArtistDetails.distinctAlbums(MusicLink.parse(root["album"]), artist: track.artist).prefix(3))
+                for index in details.artist.topAlbums.indices where details.artist.topAlbums[index].imageURL == nil {
+                    guard !Task.isCancelled else { return details }
+                    let urls = await albumArtwork(artist: track.artist, album: details.artist.topAlbums[index].name)
+                    details.artist.topAlbums[index].imageAlternatives = urls
+                    details.artist.topAlbums[index].imageURL = urls.first
+                }
             }
         }
         return details
@@ -143,7 +152,9 @@ extension LastFMClient {
         let json = try await request(["method": "user.getInfo", "user": username])
         guard let info = json["user"] as? [String: Any] else { return nil }
         let registered = Self.count((info["registered"] as? [String: Any])?["unixtime"]).map { Date(timeIntervalSince1970: TimeInterval($0)) }
-        return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "", playCount: String(Self.count(info["playcount"]) ?? 0), url: (info["url"] as? String).flatMap(URL.init(string:)), avatarURL: Self.cover(info["image"]), registered: registered)
+        return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "", playCount: String(Self.count(info["playcount"]) ?? 0), url: (info["url"] as? String).flatMap(URL.init(string:)), avatarURL: Self.cover(info["image"]), registered: registered,
+                               artistCount: Self.count(info["artist_count"]), albumCount: Self.count(info["album_count"]),
+                               trackCount: Self.count(info["track_count"]))
     }
 
     nonisolated static func count(_ value: Any?) -> Int? {
