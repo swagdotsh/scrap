@@ -21,6 +21,10 @@ private struct MainTabs: View {
     @State private var profile: ListenerProfile?
     @State private var showingProfile = false
     @State private var showingScan = false
+    @State private var missedPlays: [MissedPlay] = []
+    @State private var scanBanner: ScanBanner?
+    @State private var scanTask: Task<Void, Never>?
+    @EnvironmentObject private var scrobbler: PlayCountScrobbler
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -38,11 +42,20 @@ private struct MainTabs: View {
             }
         }
         .minimizesTabBarOnScroll()
+        .musicPages()
         .sheet(isPresented: $showingProfile) {
             ProfileView(profile: profile)
         }
         .sheet(isPresented: $showingScan) {
-            ScanView()
+            ScanView(plays: missedPlays)
+        }
+        .overlay(alignment: .top) {
+            if let scanBanner {
+                ScanBannerView(banner: scanBanner)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onTapGesture { if scanBanner != .checking { withAnimation { self.scanBanner = nil } } }
+            }
         }
         .task(id: lastFM.username) {
             profile = try? await lastFM.profile()
@@ -53,13 +66,41 @@ private struct MainTabs: View {
         }
     }
 
+    private func startScan() {
+        scanTask?.cancel()
+        scanTask = Task {
+            if scrobbler.authorization == .notDetermined { await scrobbler.requestAccess() }
+            guard scrobbler.authorization == .authorized else { return await showScanResult(.noAccess) }
+            withAnimation { scanBanner = .checking }
+            do {
+                let plays = try await MissedPlayScanner.check(lastFM: lastFM, scrobbler: scrobbler)
+                guard !Task.isCancelled else { return }
+                if plays.isEmpty { return await showScanResult(.nothingMissed) }
+                withAnimation { scanBanner = nil }
+                missedPlays = plays
+                showingScan = true
+            } catch {
+                guard !Task.isCancelled else { return }
+                await showScanResult(.failed)
+            }
+        }
+    }
+
+    private func showScanResult(_ banner: ScanBanner) async {
+        withAnimation { scanBanner = banner }
+        try? await Task.sleep(for: .seconds(2.5))
+        guard !Task.isCancelled, scanBanner == banner else { return }
+        withAnimation { scanBanner = nil }
+    }
+
     private func screen<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
             content()
                 .navigationTitle(title)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Scan…") { showingScan = true }
+                        Button("Scan…") { startScan() }
+                            .disabled(scanBanner == .checking)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showingProfile = true } label: {

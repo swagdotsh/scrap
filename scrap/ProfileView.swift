@@ -7,6 +7,7 @@ struct ProfileView: View {
     @AppStorage("profileChartPeriod") private var period = ChartPeriod.week
     @State private var charts: [ChartKind: [ProfileChartEntry]] = [:]
     @State private var error: String?
+    @State private var libraryCounts: [ChartKind: Int] = [:]
 
     var body: some View {
         NavigationStack {
@@ -22,9 +23,19 @@ struct ProfileView: View {
                                         Text(profile.realName).foregroundStyle(.secondary)
                                     }
                                     Text("\(profile.playCount.formatted()) scrobbles").font(.subheadline).foregroundStyle(.secondary)
+                                    if let registered = profile.registered {
+                                        Text("Joined \(registered.formatted(.dateTime.day().month(.abbreviated).year()))")
+                                            .font(.subheadline).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
+                    }
+
+                    Section("last.fm and You") {
+                        libraryRow("Artists", systemImage: "music.mic", kind: .artists)
+                        libraryRow("Albums", systemImage: "square.stack", kind: .albums)
+                        libraryRow("Tracks", systemImage: "music.note", kind: .tracks)
                     }
                 }
 
@@ -83,6 +94,35 @@ struct ProfileView: View {
             }
             .refreshable { await load() }
             .task(id: "\(lastFM.username ?? "")|\(period)") { await load() }
+            .task(id: lastFM.username) { await loadLibraryCounts() }
+        }
+        .musicPages()
+    }
+
+    private func libraryRow(_ title: String, systemImage: String, kind: ChartKind) -> some View {
+        LabeledContent {
+            if let count = libraryCounts[kind] {
+                Text(count.formatted()).monospacedDigit()
+            } else {
+                ProgressView()
+            }
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+    }
+
+    /// Uses the counts from user.getInfo when last.fm includes them, otherwise each overall chart's total.
+    private func loadLibraryCounts() async {
+        let known: [ChartKind: Int?] = [.artists: profile?.artistCount, .albums: profile?.albumCount, .tracks: profile?.trackCount]
+        libraryCounts = known.compactMapValues { $0 }
+        await withTaskGroup(of: (ChartKind, Int?).self) { group in
+            for kind in ChartKind.allCases where libraryCounts[kind] == nil {
+                group.addTask { (kind, await lastFM.libraryCount(kind)) }
+            }
+            for await (kind, count) in group {
+                guard !Task.isCancelled else { return }
+                libraryCounts[kind] = count ?? 0
+            }
         }
     }
 

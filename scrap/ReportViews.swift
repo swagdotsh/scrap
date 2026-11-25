@@ -109,22 +109,27 @@ struct ListeningClockChart: View {
         return hourly.firstIndex(of: max)
     }
 
+    /// "6 AM" on 12-hour phones, "06:00" on 24-hour phones (a bare hour reads as just "06" there).
     static func hourLabel(_ hour: Int) -> String {
         let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: .now) ?? .now
-        return date.formatted(.dateTime.hour())
+        let uses12Hour = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? false
+        return uses12Hour ? date.formatted(.dateTime.hour()) : date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
     }
 
     var body: some View {
         Chart(Array(hourly.enumerated()), id: \.offset) { hour, count in
-            BarMark(x: .value("Hour", hour), y: .value("Scrobbles", count), width: .ratio(0.7))
+            BarMark(x: .value("Hour", String(hour)), y: .value("Scrobbles", count), width: .ratio(0.7))
                 .foregroundStyle(hour == peak ? Color.accentColor : Color.accentColor.opacity(0.35))
                 .accessibilityLabel(Self.hourLabel(hour))
                 .accessibilityValue("\(count) scrobbles")
         }
-        .chartXScale(domain: -0.5...23.5)
+        // Hours are categories: a `.ratio` bar width has no band to measure on a numeric axis, so bars drew zero-wide.
+        .chartXScale(domain: (0..<24).map(String.init))
         .chartXAxis {
-            AxisMarks(values: [0, 6, 12, 18]) { value in
-                AxisValueLabel { if let hour = value.as(Int.self) { Text(Self.hourLabel(hour)) } }
+            AxisMarks { value in
+                if let hour = value.as(String.self).flatMap(Int.init), hour % 6 == 0 {
+                    AxisValueLabel(Self.hourLabel(hour), anchor: .topLeading, collisionResolution: .disabled)
+                }
             }
         }
         .chartYAxis(.hidden)

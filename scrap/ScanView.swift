@@ -40,22 +40,70 @@ enum MissedPlayScanner {
         }
         .sorted { $0.startedAt > $1.startedAt }
     }
+
+    /// Sends anything waiting first, then looks for plays that never reached last.fm.
+    @MainActor
+    static func check(lastFM: LastFMClient, scrobbler: PlayCountScrobbler) async throws -> [MissedPlay] {
+        await scrobbler.sync()
+        await lastFM.retryPending()
+        return try await scan(lastFM: lastFM)
+    }
+}
+
+enum ScanBanner: Equatable {
+    case checking, nothingMissed, noAccess, failed
+
+    var text: String {
+        switch self {
+        case .checking: "Checking for missed plays…"
+        case .nothingMissed: "Nothing missed"
+        case .noAccess: "No access to Apple Music"
+        case .failed: "Couldn't check for missed plays"
+        }
+    }
+
+    var symbol: String? {
+        switch self {
+        case .checking: nil
+        case .nothingMissed: "checkmark.circle.fill"
+        case .noAccess: "lock.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        }
+    }
+}
+
+struct ScanBannerView: View {
+    let banner: ScanBanner
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let symbol = banner.symbol {
+                Image(systemName: symbol).foregroundStyle(banner == .nothingMissed ? .green : .secondary)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+            Text(banner.text).font(.subheadline.weight(.semibold))
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .badgeBackground()
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
 }
 
 struct ScanView: View {
     @EnvironmentObject private var lastFM: LastFMClient
-    @EnvironmentObject private var scrobbler: PlayCountScrobbler
     @Environment(\.dismiss) private var dismiss
-    @State private var plays: [MissedPlay]?
-    @State private var error: String?
+    @State private var plays: [MissedPlay]
+
+    init(plays: [MissedPlay]) {
+        _plays = State(initialValue: plays)
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                if let error {
-                    Text(error).foregroundStyle(.red)
-                }
-                ForEach(plays ?? []) { play in
+                ForEach(plays) { play in
                     Link(destination: play.track.trackURL) {
                         HStack(spacing: 12) {
                             Group {
@@ -78,12 +126,17 @@ struct ScanView: View {
                         }
                     }
                 }
-                .onDelete { plays?.remove(atOffsets: $0) }
+                .onDelete { plays.remove(atOffsets: $0) }
             }
             .tint(.primary)
-            .overlay { overlay }
+            .overlay {
+                if plays.isEmpty {
+                    ContentUnavailableView("Nothing to scrobble", systemImage: "checkmark.circle",
+                                           description: Text("You removed every missed play from the list."))
+                }
+            }
             .safeAreaInset(edge: .bottom) {
-                if let plays, !plays.isEmpty {
+                if !plays.isEmpty {
                     VStack(spacing: 8) {
                         Button {
                             lastFM.scrobble(plays.map { ($0.track, $0.startedAt) })
@@ -99,40 +152,14 @@ struct ScanView: View {
                     .padding()
                 }
             }
-            .navigationTitle(plays.map { $0.isEmpty ? "Scan" : "\($0.count) missed" } ?? "Scanning…")
+            .navigationTitle("\(plays.count) missed")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
             }
-            .task { await scan() }
         }
-    }
-
-    @ViewBuilder private var overlay: some View {
-        if scrobbler.authorization != .authorized {
-            ContentUnavailableView("No access to Apple Music", systemImage: "lock",
-                                   description: Text("scrap needs access to your library to look for missed plays."))
-        } else if plays == nil, error == nil {
-            ProgressView("Looking for missed plays…")
-        } else if plays?.isEmpty == true {
-            ContentUnavailableView("Nothing missed", systemImage: "checkmark.circle",
-                                   description: Text("Everything you've played in the last 2 weeks is on last.fm."))
-        }
-    }
-
-    private func scan() async {
-        guard scrobbler.authorization == .authorized else { return }
-        await scrobbler.sync()
-        await lastFM.retryPending()
-        do {
-            let result = try await MissedPlayScanner.scan(lastFM: lastFM)
-            guard !Task.isCancelled else { return }
-            plays = result
-        } catch {
-            guard !Task.isCancelled else { return }
-            self.error = "Couldn't check your last.fm history. \(error.localizedDescription)"
-        }
+        .musicPages()
     }
 }

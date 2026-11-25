@@ -81,8 +81,10 @@ struct ChartArtwork: View {
         } else {
             RemoteArtwork(url: entry.link.imageURL ?? trackCover, symbol: kind == .albums ? "opticaldisc" : "music.note", size: size)
                 .task(id: entry.id) {
-                    guard kind == .tracks, entry.link.imageURL == nil else { return }
-                    trackCover = await lastFM.trackArtwork(artist: entry.artist, track: entry.link.name)
+                    guard entry.link.imageURL == nil else { return }
+                    trackCover = kind == .tracks
+                        ? await lastFM.trackArtwork(artist: entry.artist, track: entry.link.name)
+                        : await lastFM.albumCoverURL(artist: entry.artist, album: entry.link.name)
                 }
         }
     }

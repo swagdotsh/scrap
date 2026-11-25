@@ -86,6 +86,9 @@ struct ListenerProfile {
     let url: URL?
     var avatarURL: URL? = nil
     var registered: Date? = nil
+    var artistCount: Int? = nil
+    var albumCount: Int? = nil
+    var trackCount: Int? = nil
 }
 
 struct FriendActivity: Identifiable {
@@ -122,20 +125,32 @@ struct FriendActivity: Identifiable {
     }
 }
 
+enum YearChartCache {
+    static var entries: [String: (entries: [ProfileChartEntry], fetched: Date)] = [:]
+}
+
 enum TrackArtworkCache {
     static var urls: [String: URL?] = [:]
 }
 
 enum ChartPeriod: String, CaseIterable, Identifiable {
-    case week = "7day", month = "1month", year = "12month", overall
+    case week = "7day", month = "1month", sixMonths = "6month", thisYear, year = "12month", overall
     var id: String { rawValue }
     var title: String {
         switch self {
         case .week: "Last 7 days"
         case .month: "Last 30 days"
+        case .sixMonths: "Last 6 months"
+        case .thisYear: String(Calendar.current.component(.year, from: .now))
         case .year: "Last 365 days"
         case .overall: "All time"
         }
+    }
+
+    /// January 1st of this year for `.thisYear`, which last.fm's top charts don't support directly.
+    var calendarYearStart: Date? {
+        guard self == .thisYear else { return nil }
+        return Calendar.current.dateInterval(of: .year, for: .now)?.start
     }
 }
 
@@ -237,7 +252,9 @@ extension LastFMClient {
         return ListenerProfile(name: info["name"] as? String ?? username, realName: info["realname"] as? String ?? "",
                                playCount: Self.count(info["playcount"]) ?? 0,
                                url: (info["url"] as? String).flatMap(URL.init(string:)),
-                               avatarURL: ArtworkCandidates.urls(info["image"]).first, registered: registered)
+                               avatarURL: ArtworkCandidates.urls(info["image"]).first, registered: registered,
+                               artistCount: Self.count(info["artist_count"]), albumCount: Self.count(info["album_count"]),
+                               trackCount: Self.count(info["track_count"]))
     }
 
     func friends() async throws -> [FriendActivity] {
@@ -290,18 +307,51 @@ extension LastFMClient {
     func profileChart(_ kind: ChartKind, period: ChartPeriod, limit: Int = 10) async throws -> [ProfileChartEntry] {
         guard let username else { return [] }
         let singular = String(kind.rawValue.dropLast())
+        if let start = period.calendarYearStart {
+            return Array(try await yearToDateChart(kind, user: username, from: start).prefix(limit))
+        }
         let method = "user.getTop" + kind.rawValue.capitalized
         let json = try await request(["method": method, "user": username, "period": period.rawValue, "limit": String(limit)])
         guard let root = json["top" + kind.rawValue] as? [String: Any] else { return [] }
-        let rows = root[singular] as? [[String: Any]] ?? (root[singular] as? [String: Any]).map { [$0] } ?? []
+        return Self.chartEntries(root[singular], limit: limit)
+    }
+
+    /// Every artist/album/track scrobbled since `start`, most played first, via the user.getWeekly*Chart range endpoints.
+    /// Cached for a few minutes so the profile and "Show more" share one download.
+    private func yearToDateChart(_ kind: ChartKind, user: String, from start: Date) async throws -> [ProfileChartEntry] {
+        let singular = String(kind.rawValue.dropLast())
+        let key = "\(user.lowercased())|\(kind.rawValue)|\(Int(start.timeIntervalSince1970))"
+        if let cached = YearChartCache.entries[key], Date().timeIntervalSince(cached.fetched) < 5 * 60 { return cached.entries }
+        let json = try await request(["method": "user.getWeekly\(singular.capitalized)Chart", "user": user,
+                                      "from": String(Int(start.timeIntervalSince1970)),
+                                      "to": String(Int(Date().timeIntervalSince1970))])
+        guard let root = json["weekly\(singular)chart"] as? [String: Any] else { return [] }
+        let entries = Self.chartEntries(root[singular], limit: .max).sorted { $0.count > $1.count }
+        YearChartCache.entries[key] = (entries, Date())
+        return entries
+    }
+
+    static func chartEntries(_ value: Any?, limit: Int, countKey: String = "playcount") -> [ProfileChartEntry] {
+        let rows = value as? [[String: Any]] ?? (value as? [String: Any]).map { [$0] } ?? []
+        var seen = Set<String>()
         var entries: [ProfileChartEntry] = []
-        for row in rows.prefix(limit) {
-            guard let link = MusicLink.parse(row).first else { continue }
-            let artist = (row["artist"] as? [String: Any])?["name"] as? String ?? ""
-            let count = Self.count(row["playcount"]) ?? 0
-            if !entries.contains(where: { $0.id == link.id }) { entries.append(ProfileChartEntry(link: link, artist: artist, count: count)) }
+        for row in rows {
+            guard entries.count < limit else { break }
+            guard let link = MusicLink.parse(row).first, seen.insert(link.id).inserted else { continue }
+            let artistRow = row["artist"] as? [String: Any]
+            let artist = artistRow?["name"] as? String ?? artistRow?["#text"] as? String ?? row["artist"] as? String ?? ""
+            entries.append(ProfileChartEntry(link: link, artist: artist, count: Self.count(row[countKey]) ?? 0))
         }
         return entries
+    }
+
+    /// How many different artists, albums or tracks the listener has scrobbled, from the chart's total.
+    func libraryCount(_ kind: ChartKind) async -> Int? {
+        guard let username else { return nil }
+        let json = try? await request(["method": "user.getTop" + kind.rawValue.capitalized, "user": username,
+                                       "period": "overall", "limit": "1"])
+        let attributes = (json?["top" + kind.rawValue] as? [String: Any])?["@attr"] as? [String: Any]
+        return Self.count(attributes?["total"])
     }
 
     func trackArtwork(artist: String, track: String) async -> URL? {

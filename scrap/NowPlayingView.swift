@@ -220,7 +220,7 @@ struct NowPlayingView: View {
                 LabeledContent("Total plays on last.fm", value: plays.formatted())
             }
             if let url = details.url {
-                Link("Read more on last.fm", destination: url)
+                Link("More about \(name)", destination: url)
             }
         } header: {
             Text("About \(name)")
