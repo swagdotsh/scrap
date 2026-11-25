@@ -125,11 +125,15 @@ You'll need **Xcode 27** and your own [last.fm API credentials](https://www.last
 LASTFM_API_KEY=your_api_key
 LASTFM_SHARED_SECRET=your_shared_secret
 DISCORD_APPLICATION_ID=your_discord_application_id
+DISCORD_APPLICATION_ID_SPOTIFY=your_spotify_discord_application_id
+DISCORD_APPLICATION_ID_UNTITLED=your_untitled_discord_application_id
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
 
    `DISCORD_APPLICATION_ID` is only needed for Discord Rich Presence. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications) and copy its **Application ID**. The application's name is shown on Discord as the "Listening to …" heading of your activity, so name it what you want people to see (for example "Apple Music"). Without it, scrap works normally and the Discord tab says it isn't set up.
+
+   `DISCORD_APPLICATION_ID_SPOTIFY` and `DISCORD_APPLICATION_ID_UNTITLED` are optional. Set them to separate Discord applications (for example named "Spotify" and "[untitled]") so your activity says what you're actually listening on. Music from a service without its own ID uses `DISCORD_APPLICATION_ID`.
 
    `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` are only needed for artist images. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the **Web API** enabled and copy its **Client ID** and **Client secret**. Images are saved on your Mac for up to 24 hours. Without them, artists show a placeholder.
 

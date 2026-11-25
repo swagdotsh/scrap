@@ -168,4 +168,13 @@ struct DiscordPresenceTests {
         #expect(!DiscordPresenceSettings.isShown(for: .untitled, defaults))
         #expect(DiscordPresenceSettings.isShown(for: nil, defaults))
     }
+
+    @Test func eachServiceUsesItsOwnDiscordApplicationOrFallsBack() {
+        let ids: [PlaybackService: String] = [.spotify: "222", .untitled: "333"]
+        #expect(DiscordPresence.applicationID(for: .spotify, defaultID: "111", serviceIDs: ids) == "222")
+        #expect(DiscordPresence.applicationID(for: .untitled, defaultID: "111", serviceIDs: ids) == "333")
+        #expect(DiscordPresence.applicationID(for: .appleMusic, defaultID: "111", serviceIDs: ids) == "111")
+        #expect(DiscordPresence.applicationID(for: nil, defaultID: "111", serviceIDs: ids) == "111")
+        #expect(DiscordPresence.applicationID(for: .spotify, defaultID: "111", serviceIDs: [:]) == "111")
+    }
 }

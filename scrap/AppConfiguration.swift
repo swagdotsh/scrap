@@ -4,6 +4,8 @@ struct AppConfiguration {
     let apiKey: String
     let sharedSecret: String
     var discordApplicationID = ""
+    var discordSpotifyApplicationID = ""
+    var discordUntitledApplicationID = ""
     var spotifyClientID = ""
     var spotifyClientSecret = ""
 
@@ -13,6 +15,8 @@ struct AppConfiguration {
         let values = parse(contents)
         return AppConfiguration(apiKey: values["LASTFM_API_KEY"] ?? "", sharedSecret: values["LASTFM_SHARED_SECRET"] ?? "",
                                 discordApplicationID: values["DISCORD_APPLICATION_ID"] ?? "",
+                                discordSpotifyApplicationID: values["DISCORD_APPLICATION_ID_SPOTIFY"] ?? "",
+                                discordUntitledApplicationID: values["DISCORD_APPLICATION_ID_UNTITLED"] ?? "",
                                 spotifyClientID: values["SPOTIFY_CLIENT_ID"] ?? "",
                                 spotifyClientSecret: values["SPOTIFY_CLIENT_SECRET"] ?? "")
     }

@@ -141,3 +141,30 @@ struct RemoteAlbumArtwork<Placeholder: View>: View {
         }
     }
 }
+
+@MainActor
+enum LocalArtwork {
+    private static var cache: [String: NSImage] = [:]
+    private static var order: [String] = []
+
+    static func appleMusicData(trackID: String) -> Data? {
+        var error: NSDictionary?
+        let result = NSAppleScript(source: """
+        tell application id "com.apple.Music"
+            if (count of artworks of current track) is 0 then return {persistent ID of current track}
+            return {persistent ID of current track, raw data of artwork 1 of current track}
+        end tell
+        """)?.executeAndReturnError(&error)
+        guard error == nil, let result, result.numberOfItems == 2, result.atIndex(1)?.stringValue == trackID else { return nil }
+        return result.atIndex(2)?.data
+    }
+
+    static func appleMusicCover(trackID: String) -> NSImage? {
+        if let cached = cache[trackID] { return cached }
+        guard let data = appleMusicData(trackID: trackID), let image = NSImage(data: data) else { return nil }
+        cache[trackID] = image
+        order.append(trackID)
+        if order.count > 8 { cache[order.removeFirst()] = nil }
+        return image
+    }
+}

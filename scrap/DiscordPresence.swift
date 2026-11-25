@@ -276,8 +276,22 @@ struct DiscordActivity: Equatable {
 
 @MainActor
 final class DiscordPresence: ObservableObject {
-    static let applicationID = AppConfiguration.load().discordApplicationID
-        .filter(\.isNumber)
+    static let defaultApplicationID = AppConfiguration.load().discordApplicationID.filter(\.isNumber)
+    static let serviceApplicationIDs: [PlaybackService: String] = {
+        let configuration = AppConfiguration.load()
+        let ids: [PlaybackService: String] = [.spotify: configuration.discordSpotifyApplicationID.filter(\.isNumber),
+                                              .untitled: configuration.discordUntitledApplicationID.filter(\.isNumber)]
+        return ids.filter { !$0.value.isEmpty }
+    }()
+
+    static func applicationID(for service: PlaybackService?) -> String {
+        applicationID(for: service, defaultID: defaultApplicationID, serviceIDs: serviceApplicationIDs)
+    }
+
+    nonisolated static func applicationID(for service: PlaybackService?, defaultID: String,
+                                          serviceIDs: [PlaybackService: String]) -> String {
+        service.flatMap { serviceIDs[$0] } ?? defaultID
+    }
     static let discordBundleIDs = ["com.hnc.Discord", "com.hnc.DiscordPTB", "com.hnc.DiscordCanary"]
 
     enum Status: Equatable {
@@ -298,7 +312,7 @@ final class DiscordPresence: ObservableObject {
     @Published private(set) var info: DiscordTrackInfo?
     @Published private(set) var isPlaying = false
     @Published private(set) var startedAt: Date?
-    @Published private(set) var appName: String?
+    @Published private(set) var appNames: [String: String] = [:]
     @Published private(set) var activityError: String?
 
     private let client: LastFMClient
@@ -308,6 +322,8 @@ final class DiscordPresence: ObservableObject {
     private var trackKey: String?
     private var currentRawTrack: PlayingTrack?
     private var currentSource: PlaybackService?
+    private var connectedID: String?
+    private var activeID: String { Self.applicationID(for: currentSource) }
     private var currentTrackID: String?
     private var lookupTask: Task<Void, Never>?
     private var linkCache: [String: (songLink: URL?, appleMusic: URL?)] = [:]
@@ -358,13 +374,19 @@ final class DiscordPresence: ObservableObject {
         tick()
     }
 
-    func fetchAppName() async {
-        guard appName == nil, !Self.applicationID.isEmpty,
-              let url = URL(string: "https://discord.com/api/v10/applications/\(Self.applicationID)/rpc"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let name = json["name"] as? String else { return }
-        appName = name
+    func appName(for service: PlaybackService?) -> String? {
+        appNames[Self.applicationID(for: service)]
+    }
+
+    func fetchAppNames() async {
+        let ids = Set(PlaybackService.allCases.map(Self.applicationID(for:))).filter { !$0.isEmpty && appNames[$0] == nil }
+        for id in ids {
+            guard let url = URL(string: "https://discord.com/api/v10/applications/\(id)/rpc"),
+                  let (data, _) = try? await URLSession.shared.data(from: url),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let name = json["name"] as? String else { continue }
+            appNames[id] = name
+        }
     }
 
     private func displayTrack(_ track: PlayingTrack) -> PlayingTrack {
@@ -384,7 +406,7 @@ final class DiscordPresence: ObservableObject {
         let newEnabled = UserDefaults.standard.bool(forKey: DiscordKey.enabled)
         if newEnabled != enabled {
             enabled = newEnabled
-            if !enabled { connection.disconnect(); lastSent = nil; pendingSend?.cancel(); pendingSend = nil }
+            if !enabled { connection.disconnect(); connectedID = nil; lastSent = nil; pendingSend?.cancel(); pendingSend = nil }
             lastAttempt = .distantPast
             retryDelay = 5
             activityError = nil
@@ -399,7 +421,17 @@ final class DiscordPresence: ObservableObject {
     }
 
     private func tick() {
-        guard enabled, !Self.applicationID.isEmpty else { return }
+        guard enabled, !activeID.isEmpty else { return }
+        if let connectedID, connectedID != activeID {
+            connection.disconnect()
+            self.connectedID = nil
+            lastSent = nil
+            pendingSend?.cancel()
+            pendingSend = nil
+            lastAttempt = .distantPast
+            retryDelay = 5
+            status = .waitingForDiscord
+        }
         switch status {
         case .connected:
             scheduleSend()
@@ -416,7 +448,8 @@ final class DiscordPresence: ObservableObject {
             }
             lastAttempt = Date()
             status = .connecting
-            connection.connect(clientID: Self.applicationID)
+            connectedID = activeID
+            connection.connect(clientID: activeID)
         }
     }
 
@@ -424,7 +457,7 @@ final class DiscordPresence: ObservableObject {
 
     private func refreshStatus() {
         if !enabled { status = .off }
-        else if Self.applicationID.isEmpty { status = .notConfigured }
+        else if activeID.isEmpty { status = .notConfigured }
         else if case .connected = status {}
         else { status = .waitingForDiscord }
     }
@@ -533,14 +566,8 @@ final class DiscordPresence: ObservableObject {
                   let url = URL(string: raw), url.scheme == "https" else { return nil }
             return url
         case .appleMusic:
-            let result = Self.runScript("""
-            tell application id "com.apple.Music"
-                if (count of artworks of current track) is 0 then return {persistent ID of current track}
-                return {persistent ID of current track, raw data of artwork 1 of current track}
-            end tell
-            """)
-            guard let result, result.numberOfItems == 2, result.atIndex(1)?.stringValue == trackID,
-                  let raw = result.atIndex(2)?.data, let jpeg = Self.coverJPEG(raw) else { return nil }
+            guard let trackID, let raw = LocalArtwork.appleMusicData(trackID: trackID),
+                  let jpeg = Self.coverJPEG(raw) else { return nil }
             return await uploadedCoverURL(jpeg)
         default:
             return nil

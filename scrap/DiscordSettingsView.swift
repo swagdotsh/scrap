@@ -88,7 +88,7 @@ private struct DiscordSettingsPane: View {
                 .frame(width: 270)
                 .padding(16)
         }
-        .task { await presence.fetchAppName() }
+        .task { await presence.fetchAppNames() }
     }
 
     @ViewBuilder private var scopeControls: some View {
@@ -237,7 +237,7 @@ private struct DiscordSettingsPane: View {
         let playing = live ? presence.isPlaying : true
         let activity = DiscordActivity.build(info: previewInfo, settings: settings, isPlaying: playing,
                                              startedAt: live ? presence.startedAt : sampleStart)
-        let appName = presence.appName ?? "scrap"
+        let appName = presence.appName(for: previewInfo.source) ?? "scrap"
         return VStack(alignment: .leading, spacing: 10) {
             Text("Preview").font(.headline)
             if let service = scope, !showForService {

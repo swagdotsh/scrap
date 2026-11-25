@@ -51,6 +51,9 @@ struct ContentView: View {
     @State private var pageError: String?
     @State private var refreshID = 0
     @State private var remoteUser: String?
+    @State private var libraryCounts: [ChartKind: Int] = [:]
+    @State private var localCover: NSImage?
+    @State private var libraryCountsUser: String?
 
     private func isThisDevice(_ remote: RecentScrobble, local: PlayingTrack) -> Bool {
         let names = client.metadata(local)
@@ -145,7 +148,13 @@ struct ContentView: View {
             }
         }
         .frame(width: 680, height: 350)
+        .musicPages(client: client)
         .background(isMenuBar ? Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1 : min(1, max(0.5, menuBarBackgroundOpacity))) : .clear)
+        .task(id: "local-cover-\(listener.source?.rawValue ?? "")-\(listener.trackID ?? "")-\(listener.track?.title ?? "")") {
+            guard listener.source == .appleMusic, let trackID = listener.trackID else { localCover = nil; return }
+            if localCover != nil { localCover = nil }
+            localCover = LocalArtwork.appleMusicCover(trackID: trackID)
+        }
         .task(id: "love-\(detailTaskID)") {
             guard let track = shownTrack?.track else { return }
             await client.refreshLovedState(for: track)
@@ -220,6 +229,26 @@ struct ContentView: View {
             }
             isLoading = false
         }
+        .task(id: "library-\(selection == .profile)-\(profile?.name ?? "")") {
+            guard selection == .profile, let profile, libraryCountsUser != profile.name else { return }
+            await loadLibraryCounts(profile)
+        }
+    }
+
+    private func loadLibraryCounts(_ profile: ListenerProfile) async {
+        let known: [ChartKind: Int?] = [.artists: profile.artistCount, .albums: profile.albumCount, .tracks: profile.trackCount]
+        libraryCounts = known.compactMapValues { $0 }
+        await withTaskGroup(of: (ChartKind, Int?).self) { group in
+            for kind in ChartKind.allCases where libraryCounts[kind] == nil {
+                group.addTask { (kind, await client.libraryCount(kind)) }
+            }
+            for await (kind, count) in group {
+                guard !Task.isCancelled else { return }
+                libraryCounts[kind] = count ?? 0
+            }
+        }
+        guard !Task.isCancelled else { return }
+        libraryCountsUser = profile.name
     }
 
     private var nowPlaying: some View {
@@ -227,10 +256,10 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
         if shownTrack?.isRemote == true {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Now playing from another device")
+                Text("Now playing from another scrobbler")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                Text("Reported from last.fm. This isn't coming from this device.")
+                Text("Reported from last.fm. This isn't coming from scrap.")
                     .font(.caption).foregroundStyle(.tertiary)
             }
         } else if let source = listener.source {
@@ -240,7 +269,9 @@ struct ContentView: View {
         }
         HStack(alignment: .top, spacing: 20) {
             Group {
-                if animatedAlbumCovers, let image = details?.coverImage {
+                if let image = shownLocalCover, !(prioritizeAnimatedCovers && animatedAlbumCovers && isAnimated(details?.coverImage)) {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else if animatedAlbumCovers, let image = details?.coverImage {
                     AlbumArtwork(image: image)
                 } else if !animatedAlbumCovers, let url = details?.coverURL {
                     RemoteAlbumArtwork(url: url, alternatives: details?.coverAlternatives ?? []) {
@@ -286,7 +317,7 @@ struct ContentView: View {
                         .accessibilityLabel(loved ? "Unlove on last.fm" : "Love on last.fm")
                     }
                     nowPlayingMetadata(track, notes: !isRemote)
-                        .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.body).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if !isRemote {
                         ProgressView(value: progress(track))
                             .accessibilityLabel("Scrobble progress")
@@ -308,6 +339,14 @@ struct ContentView: View {
             aboutArtist(artistDetailsTrack(track).artist, details: details.artist)
         }
         }.padding(.top, 16)
+    }
+
+    private var shownLocalCover: NSImage? {
+        shownTrack?.isRemote == false ? localCover : nil
+    }
+
+    private func isAnimated(_ image: NSImage?) -> Bool {
+        ((image?.representations.first as? NSBitmapImageRep)?.value(forProperty: .frameCount) as? NSNumber)?.intValue ?? 0 > 1
     }
 
     private func artistDetailsTrack(_ track: PlayingTrack) -> PlayingTrack {
@@ -386,7 +425,7 @@ struct ContentView: View {
                     }
                     if !details.biography.isEmpty {
                         ArtistBiography(name: name, text: details.biography)
-                        if let url = details.url { Link("Read more on last.fm", destination: url).font(.caption) }
+                        Link("More about \(name)", destination: MusicItem.artist(name).url).font(.caption)
                     } else {
                         ArtistPortrait(name: name, size: 72)
                         Text("No biography available.").font(.caption).foregroundStyle(.secondary)
@@ -412,7 +451,7 @@ struct ContentView: View {
                                         .overlay(Image(systemName: "opticaldisc").foregroundStyle(.secondary))
                                 }
                                 .frame(width: 32, height: 32).clipShape(RoundedRectangle(cornerRadius: 4))
-                                Text(item.name).font(.callout)
+                                Text(item.name).font(.callout).lineLimit(2).multilineTextAlignment(.leading)
                             }
                         }
                     }
@@ -424,7 +463,7 @@ struct ContentView: View {
                         Link(destination: item.url) {
                             HStack(spacing: 8) {
                                 profileImage(item.imageURL, size: 32, alternatives: item.imageAlternatives)
-                                Text(item.name).font(.callout)
+                                Text(item.name).font(.callout).lineLimit(2).multilineTextAlignment(.leading)
                             }
                         }
                     }
@@ -470,7 +509,8 @@ struct ContentView: View {
             pageHeader("Scrobbles")
             if listener.isPlaying, let track = listener.track {
                 nowPlayingCard(title: track.title, artist: track.artist, url: track.trackURL,
-                               coverURL: details?.coverURL, alternatives: details?.coverAlternatives ?? [])
+                               coverURL: details?.coverURL, alternatives: details?.coverAlternatives ?? [],
+                               localCover: localCover)
             } else if let remote = remoteNowPlaying {
                 nowPlayingCard(title: remote.title, artist: remote.artist, url: remote.destination,
                                coverURL: remote.coverURL, alternatives: remote.coverAlternatives,
@@ -505,7 +545,7 @@ struct ContentView: View {
                     }.contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Open \(row.title) on last.fm")
+                    .help("Open \(row.title)")
                     Divider()
                 }
                 if !recent.isEmpty { Text("Latest 50 scrobbles").font(.caption).foregroundStyle(.secondary) }
@@ -513,12 +553,19 @@ struct ContentView: View {
         }
     }
 
-    private func nowPlayingCard(title: String, artist: String, url: URL, coverURL: URL?, alternatives: [URL], note: String? = nil) -> some View {
+    private func nowPlayingCard(title: String, artist: String, url: URL, coverURL: URL?, alternatives: [URL],
+                                localCover: NSImage? = nil, note: String? = nil) -> some View {
         Link(destination: url) {
             HStack(spacing: 12) {
-                RemoteAlbumArtwork(url: coverURL, alternatives: alternatives) {
-                    RoundedRectangle(cornerRadius: 6).fill(.quaternary)
-                        .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+                Group {
+                    if let localCover {
+                        Image(nsImage: localCover).resizable().scaledToFill()
+                    } else {
+                        RemoteAlbumArtwork(url: coverURL, alternatives: alternatives) {
+                            RoundedRectangle(cornerRadius: 6).fill(.quaternary)
+                                .overlay(Image(systemName: "music.note").foregroundStyle(.secondary))
+                        }
+                    }
                 }
                 .frame(width: 44, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -540,7 +587,7 @@ struct ContentView: View {
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
-        .help("Open \(title) on last.fm")
+        .help("Open \(title)")
     }
 
     private var friendsPage: some View {
@@ -775,7 +822,7 @@ struct ContentView: View {
             }.contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Open \(item.name) on last.fm")
+        .help("Open \(item.name)")
     }
 
     private var profilePage: some View {
@@ -790,6 +837,10 @@ struct ContentView: View {
                         Text(profile.name).font(.title2.bold())
                         if !profile.realName.isEmpty { Text(profile.realName).foregroundStyle(.secondary) }
                         Text("\(profile.playCount) scrobbles").font(.caption).foregroundStyle(.secondary)
+                        if let registered = profile.registered {
+                            Text("Joined \(registered.formatted(.dateTime.day().month(.abbreviated).year()))")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                     Spacer(minLength: 8)
                     VStack(alignment: .trailing, spacing: 10) {
@@ -801,6 +852,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                libraryStats
                 HStack {
                     Text("Most played").font(.headline)
                     Spacer()
@@ -816,6 +868,36 @@ struct ContentView: View {
             }
 
         }
+    }
+
+    private var libraryStats: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("last.fm and You").font(.headline)
+            HStack(spacing: 10) {
+                libraryStat("Artists", systemImage: "music.mic", kind: .artists)
+                libraryStat("Albums", systemImage: "square.stack", kind: .albums)
+                libraryStat("Tracks", systemImage: "music.note", kind: .tracks)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func libraryStat(_ title: String, systemImage: String, kind: ChartKind) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage).foregroundStyle(.secondary).frame(width: 18)
+            Text(title).font(.callout)
+            Spacer(minLength: 4)
+            if let count = libraryCounts[kind] {
+                Text(count.formatted()).font(.callout.bold()).monospacedDigit()
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+        .help("Different \(title.lowercased()) you've scrobbled")
     }
 
     private func profileImage(_ url: URL?, size: CGFloat, symbol: String = "opticaldisc", alternatives: [URL] = []) -> some View {
