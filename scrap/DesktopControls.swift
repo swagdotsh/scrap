@@ -417,6 +417,22 @@ private struct PreferencesView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Support development").font(.headline)
+                    Text("scrap is free. If you enjoy it, you can buy me a coffee.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Link(destination: URL(string: "https://ko-fi.com/zekkie")!) {
+                        Image("KofiButton")
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFit()
+                            .frame(height: 36)
+                    }
+                    .accessibilityLabel("Buy me a coffee on Ko-fi")
+                    .buttonStyle(.plain)
+                    .help("Open ko-fi.com/zekkie")
+                }
                 Spacer()
             }
             .frame(maxWidth: .infinity, alignment: .leading)

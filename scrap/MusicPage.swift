@@ -411,7 +411,9 @@ private struct ShareButton: NSViewRepresentable {
         func sharingServicePicker(_ sharingServicePicker: NSSharingServicePicker, sharingServicesForItems items: [Any],
                                   proposedSharingServices proposedServices: [NSSharingService]) -> [NSSharingService] {
             guard let url else { return proposedServices }
-            let image = NSImage(systemSymbolName: "safari", accessibilityDescription: nil) ?? NSImage()
+            let image = (NSImage(named: "LastFMLogo")?.copy() as? NSImage) ?? NSImage()
+            image.size = NSSize(width: 18, height: 18)
+            image.isTemplate = true
             let open = NSSharingService(title: "Open in last.fm", image: image, alternateImage: nil) {
                 NSWorkspace.shared.open(url)
             }
