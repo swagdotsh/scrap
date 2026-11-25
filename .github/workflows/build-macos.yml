@@ -71,4 +71,6 @@ jobs:
           xcodebuild \
             -project scrap.xcodeproj -scheme scrap -configuration Debug \
             -derivedDataPath build/Debug -destination 'platform=macOS' \
-            -only-testing:scrapTests test
+            -only-testing:scrapTests test \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO
