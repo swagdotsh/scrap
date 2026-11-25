@@ -148,8 +148,6 @@ private struct ConnectView: View {
     }
 }
 
-// MARK: - Shared pieces
-
 struct Avatar: View {
     let url: URL?
     var size: CGFloat = 34

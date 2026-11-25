@@ -2,9 +2,6 @@ import SwiftUI
 import UIKit
 import Charts
 
-// MARK: - Model
-
-/// An artist, album or track page that scrap can show in-app instead of opening last.fm.
 enum MusicItem: Hashable, Identifiable {
     case artist(String)
     case album(artist: String, name: String)
@@ -32,15 +29,14 @@ enum MusicItem: Hashable, Identifiable {
         }
     }
 
-    /// Reads a last.fm `/music/...` link. Other last.fm pages (tags, users) and other sites return nil.
     init?(url: URL) {
         guard let host = url.host?.lowercased(), host == "last.fm" || host.hasSuffix(".last.fm"),
               let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath else { return nil }
         var parts = path.split(separator: "/").map(String.init)
-        if parts.count > 1, parts[0].count == 2, parts[1] == "music" { parts.removeFirst() } // localized, e.g. /de/music
+        if parts.count > 1, parts[0].count == 2, parts[1] == "music" { parts.removeFirst() }
         guard parts.first == "music" else { return nil }
         let names = parts.dropFirst()
-            .filter { !$0.hasPrefix("+") } // +noredirect, +wiki, +similar…
+            .filter { !$0.hasPrefix("+") }
             .map { ($0.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? $0) }
         guard let artist = names.first, !artist.isEmpty else { return nil }
         switch names.count {
@@ -93,8 +89,6 @@ enum LibraryChartCache {
     static let pageSize = 500
     static let maxPages = 6
 }
-
-// MARK: - Loading
 
 extension LastFMClient {
     func musicPageInfo(_ item: MusicItem) async throws -> MusicPageInfo {
@@ -190,8 +184,6 @@ extension LastFMClient {
         return Self.chartEntries((json["similartracks"] as? [String: Any])?["track"], limit: limit)
     }
 
-    /// The signed-in listener's most-played tracks or albums by one artist. last.fm has no direct
-    /// endpoint for this, so it walks the listener's all-time chart (cached for a while) until it has enough.
     func libraryTop(_ kind: ChartKind, artist names: Set<String>, expectedPlays: Int, limit: Int) async -> [ProfileChartEntry] {
         guard let username, kind != .artists else { return [] }
         let names = Set(names.map { $0.lowercased() })
@@ -211,7 +203,6 @@ extension LastFMClient {
                                                  "period": "overall", "limit": String(LibraryChartCache.pageSize),
                                                  "page": String(page)]),
                   let root = json["top" + kind.rawValue] as? [String: Any] else { return Array(found.prefix(limit)) }
-            // Another page view may have filled the cache while this request was in flight.
             if let latest = LibraryChartCache.pages[key], latest.fetched >= page,
                Date().timeIntervalSince(latest.date) <= LibraryChartCache.lifetime {
                 cache = latest
@@ -237,10 +228,7 @@ extension LastFMClient {
     }
 }
 
-// MARK: - Presentation
-
 extension View {
-    /// Opens last.fm artist, album and track links from anything inside this view as an in-app page.
     func musicPages() -> some View { modifier(MusicPageHost()) }
 }
 
@@ -281,8 +269,6 @@ private struct MusicPageSheet: View {
         })
     }
 }
-
-// MARK: - Page
 
 struct MusicPageView: View {
     let item: MusicItem
@@ -335,7 +321,7 @@ struct MusicPageView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) } // the header draws the name
+            ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1) }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { ShareSheet.present(url: info?.url ?? item.url) } label: {
                     Image(systemName: "square.and.arrow.up")
@@ -354,8 +340,6 @@ struct MusicPageView: View {
             monthly = await lastFM.monthlyScrobbles(for: item, canonicalName: info.name, canonicalArtist: info.artist)
         }
     }
-
-    // MARK: Sections
 
     private var hero: some View {
         Section {
@@ -387,7 +371,6 @@ struct MusicPageView: View {
         }
     }
 
-    /// "Artist" for albums, "Artist - Album" for tracks; each part opens its own page.
     private var creditLine: AttributedString {
         var line = AttributedString(artistName)
         line.link = MusicItem.artist(artistName).url
@@ -544,8 +527,6 @@ struct MusicPageView: View {
         }
     }
 
-    // MARK: Loading
-
     private func loadInfo() async {
         error = nil
         do {
@@ -613,8 +594,6 @@ private struct DescriptionSheet: View {
     }
 }
 
-// MARK: - Monthly scrobbles
-
 struct MonthlyCount: Identifiable {
     let start: Date
     let count: Int
@@ -628,8 +607,6 @@ enum MonthlyChartCache {
 }
 
 extension LastFMClient {
-    /// The listener's scrobbles of one artist, album or track in each of the last 12 months (current month last).
-    /// Uses the user.getWeekly*Chart endpoints with month ranges; finished months are cached for the session.
     func monthlyScrobbles(for item: MusicItem, canonicalName: String, canonicalArtist: String?) async -> [MonthlyCount] {
         guard let username else { return [] }
         let calendar = Calendar.current
@@ -709,7 +686,6 @@ struct MonthlyItemChart: View {
         return months.firstIndex { $0.count == max }
     }
 
-    /// 0 plus at most two evenly spaced, round ticks (e.g. 0/250/500 or 0/1000/2000).
     static func axisTicks(for maximum: Int) -> [Int] {
         guard maximum > 0 else { return [0, 1] }
         let half = Double(maximum) / 2
@@ -751,10 +727,7 @@ struct MonthlyItemChart: View {
     }
 }
 
-// MARK: - Share sheet
-
 enum ShareSheet {
-    /// The system share sheet for a last.fm link, with "Open in last.fm" as the first action.
     static func present(url: URL) {
         guard let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }),

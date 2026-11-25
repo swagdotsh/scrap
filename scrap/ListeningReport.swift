@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Periods
-
 nonisolated enum ReportKind: String, CaseIterable, Identifiable, Codable {
     case week, month, year
     var id: String { rawValue }
@@ -71,8 +69,6 @@ nonisolated struct ReportPeriod: Hashable, Codable {
     }
 }
 
-// MARK: - Report
-
 nonisolated struct ListeningReport: Codable {
     struct Item: Identifiable, Codable {
         let name: String
@@ -133,8 +129,6 @@ nonisolated struct ScrobbledPlay {
     let date: Date
     let imageURL: URL?
 }
-
-// MARK: - Tallies
 
 nonisolated extension ListeningReport {
     typealias Ranked = (key: String, count: Int, play: ScrobbledPlay)
@@ -225,8 +219,6 @@ nonisolated extension ListeningReport {
         }
     }
 }
-
-// MARK: - Building
 
 extension LastFMClient {
     func listeningReport(for period: ReportPeriod, progress: ((Int, Int) -> Void)? = nil) async throws -> ListeningReport {
@@ -407,8 +399,6 @@ extension LastFMClient {
         return Self.count(attributes?["total"]) ?? 0
     }
 }
-
-// MARK: - Storage
 
 enum ReportStore {
     static let keptWeeks = 4

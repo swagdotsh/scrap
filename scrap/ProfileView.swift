@@ -111,7 +111,6 @@ struct ProfileView: View {
         }
     }
 
-    /// Uses the counts from user.getInfo when last.fm includes them, otherwise each overall chart's total.
     private func loadLibraryCounts() async {
         let known: [ChartKind: Int?] = [.artists: profile?.artistCount, .albums: profile?.albumCount, .tracks: profile?.trackCount]
         libraryCounts = known.compactMapValues { $0 }

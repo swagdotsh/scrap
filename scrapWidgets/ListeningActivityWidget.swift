@@ -1,8 +1,6 @@
 import WidgetKit
 import SwiftUI
 
-// MARK: - Daily scrobble counts
-
 enum DailyScrobbles {
     static let weeks = 20
     static let fetchLimit = 70
@@ -100,8 +98,6 @@ enum DailyScrobbles {
         }
     }
 }
-
-// MARK: - Widget
 
 struct ListeningActivityEntry: TimelineEntry {
     let date: Date

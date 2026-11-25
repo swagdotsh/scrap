@@ -64,8 +64,6 @@ struct ReportsView: View {
         }
     }
 
-    // MARK: Period
-
     private var periodSection: some View {
         let period = shownPeriod
         let latest = ReportPeriod.latest(reportKind)
@@ -111,8 +109,6 @@ struct ReportsView: View {
     private func show(_ period: ReportPeriod) {
         reportPeriod = period == .latest(period.kind) ? nil : period
     }
-
-    // MARK: Report
 
     @ViewBuilder private func reportSections(_ report: ListeningReport) -> some View {
         let noun = report.period.kind.noun
@@ -210,8 +206,6 @@ struct ReportsView: View {
             }
         }
     }
-
-    // MARK: Loading
 
     private func load(forced: Bool) async {
         let period = shownPeriod

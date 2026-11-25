@@ -109,7 +109,6 @@ struct ListeningClockChart: View {
         return hourly.firstIndex(of: max)
     }
 
-    /// "6 AM" on 12-hour phones, "06:00" on 24-hour phones (a bare hour reads as just "06" there).
     static func hourLabel(_ hour: Int) -> String {
         let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: .now) ?? .now
         let uses12Hour = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? false
@@ -123,7 +122,6 @@ struct ListeningClockChart: View {
                 .accessibilityLabel(Self.hourLabel(hour))
                 .accessibilityValue("\(count) scrobbles")
         }
-        // Hours are categories: a `.ratio` bar width has no band to measure on a numeric axis, so bars drew zero-wide.
         .chartXScale(domain: (0..<24).map(String.init))
         .chartXAxis {
             AxisMarks { value in

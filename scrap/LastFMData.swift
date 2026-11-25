@@ -147,7 +147,6 @@ enum ChartPeriod: String, CaseIterable, Identifiable {
         }
     }
 
-    /// January 1st of this year for `.thisYear`, which last.fm's top charts don't support directly.
     var calendarYearStart: Date? {
         guard self == .thisYear else { return nil }
         return Calendar.current.dateInterval(of: .year, for: .now)?.start
@@ -316,8 +315,6 @@ extension LastFMClient {
         return Self.chartEntries(root[singular], limit: limit)
     }
 
-    /// Every artist/album/track scrobbled since `start`, most played first, via the user.getWeekly*Chart range endpoints.
-    /// Cached for a few minutes so the profile and "Show more" share one download.
     private func yearToDateChart(_ kind: ChartKind, user: String, from start: Date) async throws -> [ProfileChartEntry] {
         let singular = String(kind.rawValue.dropLast())
         let key = "\(user.lowercased())|\(kind.rawValue)|\(Int(start.timeIntervalSince1970))"
@@ -345,7 +342,6 @@ extension LastFMClient {
         return entries
     }
 
-    /// How many different artists, albums or tracks the listener has scrobbled, from the chart's total.
     func libraryCount(_ kind: ChartKind) async -> Int? {
         guard let username else { return nil }
         let json = try? await request(["method": "user.getTop" + kind.rawValue.capitalized, "user": username,

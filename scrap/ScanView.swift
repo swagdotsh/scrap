@@ -41,7 +41,6 @@ enum MissedPlayScanner {
         .sorted { $0.startedAt > $1.startedAt }
     }
 
-    /// Sends anything waiting first, then looks for plays that never reached last.fm.
     @MainActor
     static func check(lastFM: LastFMClient, scrobbler: PlayCountScrobbler) async throws -> [MissedPlay] {
         await scrobbler.sync()
