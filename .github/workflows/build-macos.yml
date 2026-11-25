@@ -17,8 +17,10 @@ concurrency:
 jobs:
   build:
     name: Build and test macOS app
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
     timeout-minutes: 45
+    env:
+      XCODE_VERSION: ${{ vars.XCODE_VERSION || '27.2' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,20 +29,27 @@ jobs:
         env:
           XCODE_PATH: ${{ vars.XCODE_PATH }}
         run: |
+          echo "Installed Xcodes:"
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
           xcode="$XCODE_PATH"
           if [[ -z "$xcode" ]]; then
-            xcode=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc' | sort -V | tail -1 || true)
+            candidates=$(ls -d /Applications/Xcode_"$XCODE_VERSION"*.app 2>/dev/null || true)
+            xcode=$(printf '%s\n' $candidates | grep -viE 'beta|_rc|release_candidate' | sort -V | tail -1 || true)
+            if [[ -z "$xcode" ]]; then
+              xcode=$(printf '%s\n' $candidates | grep -iE '_rc|release_candidate' | sort -V | tail -1 || true)
+            fi
+            if [[ -z "$xcode" ]]; then
+              xcode=$(printf '%s\n' $candidates | grep -i 'beta' | sort -V | tail -1 || true)
+            fi
           fi
-          if [[ -n "$xcode" ]]; then
-            echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
-            export DEVELOPER_DIR="$xcode/Contents/Developer"
-          fi
-          xcodebuild -version
-          major=$(xcodebuild -version | awk 'NR==1 { split($2, part, "."); print part[1] }')
-          if (( major < 27 )); then
-            echo "::error::scrap needs Xcode 27 or newer (the macOS 27 SDK). Set the XCODE_PATH or MACOS_RUNNER repository variable."
+          if [[ -z "$xcode" || ! -d "$xcode" ]]; then
+            echo "::error::Xcode $XCODE_VERSION isn't installed on this runner. Set the XCODE_PATH, XCODE_VERSION or MACOS_RUNNER repository variable."
             exit 1
           fi
+          echo "Using $xcode"
+          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR="$xcode/Contents/Developer"
+          xcodebuild -version
 
       - name: Create placeholder configuration
         shell: bash
