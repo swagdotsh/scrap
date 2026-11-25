@@ -186,6 +186,24 @@ struct SettingsView: View {
             } message: {
                 Text("Its session key is removed from this iPhone's Keychain. You can add it again later.")
             }
+
+            Section {
+                VStack(spacing: 12) {
+                    Text("scrap is free. If you enjoy it, you can buy me a coffee.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Link(destination: URL(string: "https://ko-fi.com/zekkie")!) {
+                        Image("KofiButton")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 40)
+                    }
+                    .accessibilityLabel("Support scrap on Ko-fi")
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            }
         }
         .navigationTitle("Settings")
     }

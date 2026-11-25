@@ -887,7 +887,7 @@ private final class OpenInLastFMActivity: UIActivity {
     override class var activityCategory: UIActivity.Category { .action }
     override var activityType: UIActivity.ActivityType? { UIActivity.ActivityType("com.swagrelated.scrap.openInLastFM") }
     override var activityTitle: String? { "Open in last.fm" }
-    override var activityImage: UIImage? { UIImage(systemName: "safari") }
+    override var activityImage: UIImage? { UIImage(named: "LastFMLogo") }
     override func canPerform(withActivityItems activityItems: [Any]) -> Bool { true }
 
     override func perform() {
