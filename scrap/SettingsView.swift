@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("removeAppleMusicEdition") private var removeAppleMusicEdition = false
     @AppStorage("usePrimaryArtist") private var usePrimaryArtist = false
     @AppStorage("removeFeaturedArtists") private var removeFeaturedArtists = false
+    @AppStorage("preservedArtistNames") private var preservedArtistNames = LastFMClient.defaultPreservedArtistNames
     @AppStorage("loveAppleMusicFavorites") private var loveAppleMusicFavorites = false
     @AppStorage("backgroundWork") private var backgroundWork = true
     @AppStorage("nonLibraryScrobbling") private var nonLibraryScrobbling = false
@@ -111,7 +112,7 @@ struct SettingsView: View {
             Section("Metadata") {
                 Toggle(isOn: $removeAlbumTypeSuffix) {
                     Text("Remove “- Single” and “- EP”")
-                    Text("Scrobbles “Song - Single” as “Song”.")
+                    Text("Scrobbles “What we have - EP” as “What we have”.")
                 }
                 if removeAlbumTypeSuffix {
                     Toggle(isOn: $removeAppleMusicEdition) {
@@ -126,6 +127,19 @@ struct SettingsView: View {
                 Toggle(isOn: $usePrimaryArtist) {
                     Text("Scrobble only the primary artist")
                     Text("“Yeat & Drake” is scrobbled as “Yeat”.")
+                }
+                if usePrimaryArtist {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Exceptions")
+                        Text("For duos and bands").font(.subheadline).foregroundStyle(.secondary)
+                        TextField("One artist per line", text: $preservedArtistNames, axis: .vertical)
+                            .lineLimit(2...8)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                            .padding(8)
+                            .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 8))
+                    }
+                    .padding(.vertical, 2)
                 }
             }
 
