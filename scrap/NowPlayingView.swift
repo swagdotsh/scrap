@@ -175,6 +175,7 @@ struct NowPlayingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Link(destination: track.trackURL) {
                     Text(track.title).font(.headline).foregroundStyle(.primary).lineLimit(2)
+                        .multilineTextAlignment(.leading)
                 }
                 Link(destination: track.artistURL) {
                     Text(track.artist).foregroundStyle(.secondary).lineLimit(1)
