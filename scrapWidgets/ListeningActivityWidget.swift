@@ -158,15 +158,7 @@ struct ListeningActivityWidgetView: View {
                 Text("Open scrap to sign in to last.fm.").font(.footnote).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("LISTENING").font(.caption2.bold()).foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(entry.total.formatted()) scrobbles · \(DailyScrobbles.weeks) weeks")
-                            .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                    }
-                    grid
-                }
+                grid
             }
         }
         .containerBackground(.background, for: .widget)

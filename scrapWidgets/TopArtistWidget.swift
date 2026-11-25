@@ -127,7 +127,7 @@ struct TopArtistWidgetView: View {
     private func small(_ artist: TopArtistEntry.Artist) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Spacer()
-            Text("TOP ARTIST · \(entry.period.shortTitle.uppercased())")
+            Text("TOP ARTIST - \(entry.period.shortTitle.uppercased())")
                 .font(.caption2.bold()).foregroundStyle(.white.opacity(0.8))
             Text(artist.name).font(.headline).foregroundStyle(.white).lineLimit(2)
             Text("\(artist.plays.formatted()) plays").font(.caption).foregroundStyle(.white.opacity(0.8))
@@ -148,7 +148,7 @@ struct TopArtistWidgetView: View {
             .frame(width: 120, height: 120)
             .clipShape(.rect(cornerRadius: 14))
             VStack(alignment: .leading, spacing: 8) {
-                Text("TOP ARTISTS · \(entry.period.shortTitle.uppercased())")
+                Text("TOP ARTISTS - \(entry.period.shortTitle.uppercased())")
                     .font(.caption2.bold()).foregroundStyle(.secondary)
                 ForEach(Array(entry.artists.enumerated()), id: \.offset) { index, artist in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -178,7 +178,7 @@ struct TopArtistWidgetView: View {
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("Top artists · \(entry.period.shortTitle)").font(.caption2.bold()).widgetAccentable()
+            Text("Top artists - \(entry.period.shortTitle)").font(.caption2.bold()).widgetAccentable()
             ForEach(Array(entry.artists.enumerated()), id: \.offset) { index, artist in
                 HStack(spacing: 4) {
                     Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary)
@@ -193,7 +193,7 @@ struct TopArtistWidgetView: View {
     }
 
     private func inline(_ artist: TopArtistEntry.Artist) -> some View {
-        Label("\(artist.name) · \(artist.plays.formatted()) plays", systemImage: "music.mic")
+        Label("\(artist.name) - \(artist.plays.formatted()) plays", systemImage: "music.mic")
     }
 
     private func initials(_ name: String) -> String {
