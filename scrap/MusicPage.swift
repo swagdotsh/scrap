@@ -6,18 +6,19 @@ enum MusicItem: Hashable, Identifiable {
     case artist(String)
     case album(artist: String, name: String)
     case track(artist: String, name: String)
+    case tag(String)
 
     var id: String { url.absoluteString }
 
     var name: String {
         switch self {
-        case .artist(let name), .album(_, let name), .track(_, let name): name
+        case .artist(let name), .album(_, let name), .track(_, let name), .tag(let name): name
         }
     }
 
     var artist: String {
         switch self {
-        case .artist(let name), .album(let name, _), .track(let name, _): name
+        case .artist(let name), .album(let name, _), .track(let name, _), .tag(let name): name
         }
     }
 
@@ -26,6 +27,7 @@ enum MusicItem: Hashable, Identifiable {
         case .artist(let artist): Self.lastFMURL([artist])
         case .album(let artist, let name): Self.lastFMURL([artist, name])
         case .track(let artist, let name): Self.lastFMURL([artist, "_", name])
+        case .tag(let name): URL(string: "https://www.last.fm/tag/" + Self.pathComponent(name))!
         }
     }
 
@@ -33,7 +35,13 @@ enum MusicItem: Hashable, Identifiable {
         guard let host = url.host?.lowercased(), host == "last.fm" || host.hasSuffix(".last.fm"),
               let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath else { return nil }
         var parts = path.split(separator: "/").map(String.init)
-        if parts.count > 1, parts[0].count == 2, parts[1] == "music" { parts.removeFirst() }
+        if parts.count > 1, parts[0].count == 2, ["music", "tag"].contains(parts[1]) { parts.removeFirst() }
+        if parts.first == "tag", parts.count > 1 {
+            let name = parts[1].replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? parts[1]
+            guard !name.isEmpty else { return nil }
+            self = .tag(name)
+            return
+        }
         guard parts.first == "music" else { return nil }
         let names = parts.dropFirst()
             .filter { !$0.hasPrefix("+") }
@@ -47,11 +55,12 @@ enum MusicItem: Hashable, Identifiable {
     }
 
     private static func lastFMURL(_ components: [String]) -> URL {
+        URL(string: "https://www.last.fm/music/" + components.map(pathComponent).joined(separator: "/"))!
+    }
+
+    private static func pathComponent(_ value: String) -> String {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~ ")
-        let path = components.map {
-            $0.addingPercentEncoding(withAllowedCharacters: allowed)!.replacingOccurrences(of: " ", with: "+")
-        }.joined(separator: "/")
-        return URL(string: "https://www.last.fm/music/" + path)!
+        return value.addingPercentEncoding(withAllowedCharacters: allowed)!.replacingOccurrences(of: " ", with: "+")
     }
 }
 
@@ -92,6 +101,16 @@ enum LibraryChartCache {
 
 extension LastFMClient {
     func musicPageInfo(_ item: MusicItem) async throws -> MusicPageInfo {
+        if case .tag(let tag) = item {
+            let json = try await request(["method": "tag.getInfo", "tag": tag])
+            guard let row = json["tag"] as? [String: Any] else { throw pageFailure }
+            return MusicPageInfo(
+                name: row["name"] as? String ?? tag,
+                url: item.url,
+                listeners: Self.count(row["reach"]),
+                scrobbles: Self.count(row["total"]),
+                description: Self.pageDescription(row["wiki"]))
+        }
         var params = ["autocorrect": "1"]
         if let username { params["username"] = username }
         switch item {
@@ -156,7 +175,30 @@ extension LastFMClient {
                 description: Self.pageDescription(row["wiki"]),
                 tags: MusicLink.parse((row["toptags"] as? [String: Any])?["tag"], limit: 8),
                 album: album)
+        case .tag:
+            throw pageFailure
         }
+    }
+
+    func tagTopArtists(_ tag: String, limit: Int) async -> [ProfileChartEntry] {
+        guard let json = try? await request(["method": "tag.getTopArtists", "tag": tag, "limit": String(limit)]) else { return [] }
+        return Self.chartEntries((json["topartists"] as? [String: Any])?["artist"], limit: limit)
+            .map { ProfileChartEntry(link: $0.link, artist: $0.link.name, count: 0) }
+    }
+
+    func tagTopTracks(_ tag: String, limit: Int) async -> [ProfileChartEntry] {
+        guard let json = try? await request(["method": "tag.getTopTracks", "tag": tag, "limit": String(limit)]) else { return [] }
+        return Self.chartEntries((json["tracks"] as? [String: Any])?["track"], limit: limit)
+    }
+
+    func tagTopAlbums(_ tag: String, limit: Int) async -> [ProfileChartEntry] {
+        guard let json = try? await request(["method": "tag.getTopAlbums", "tag": tag, "limit": String(limit)]) else { return [] }
+        return Self.chartEntries((json["albums"] as? [String: Any])?["album"], limit: limit)
+    }
+
+    func similarTags(_ tag: String) async -> [MusicLink] {
+        guard let json = try? await request(["method": "tag.getSimilar", "tag": tag]) else { return [] }
+        return MusicLink.parse((json["similartags"] as? [String: Any])?["tag"], limit: 12)
     }
 
     func artistTopTracks(_ artist: String, limit: Int) async -> [ProfileChartEntry] {
@@ -184,17 +226,17 @@ extension LastFMClient {
         return Self.chartEntries((json["similartracks"] as? [String: Any])?["track"], limit: limit)
     }
 
-    func libraryTop(_ kind: ChartKind, artist names: Set<String>, expectedPlays: Int, limit: Int) async -> [ProfileChartEntry] {
-        guard let username, kind != .artists else { return [] }
+    func libraryTop(_ kind: ChartKind, artist names: Set<String>, expectedPlays: Int?, limit: Int) async -> [ProfileChartEntry] {
+        guard let username else { return [] }
         let names = Set(names.map { $0.lowercased() })
         let key = "\(username.lowercased())|\(kind.rawValue)"
         var cache = LibraryChartCache.pages[key] ?? .init()
         if Date().timeIntervalSince(cache.date) > LibraryChartCache.lifetime { cache = .init() }
         let singular = String(kind.rawValue.dropLast())
         while true {
-            let found = cache.entries.filter { names.contains($0.artist.lowercased()) }
+            let found = cache.entries.filter { names.contains((kind == .artists ? $0.link.name : $0.artist).lowercased()) }
             let plays = found.reduce(0) { $0 + $1.count }
-            if found.count >= limit || plays >= expectedPlays || cache.fetched >= cache.total
+            if found.count >= limit || expectedPlays.map({ plays >= $0 }) == true || cache.fetched >= cache.total
                 || cache.fetched >= LibraryChartCache.maxPages || Task.isCancelled {
                 return Array(found.prefix(limit))
             }
@@ -286,10 +328,18 @@ struct MusicPageView: View {
     @State private var yourAlbums: [ProfileChartEntry]?
     @State private var related: [ProfileChartEntry]?
     @State private var monthly: [MonthlyCount]?
+    @State private var popularArtists: [ProfileChartEntry]?
+    @State private var yourArtists: [ProfileChartEntry]?
+    @State private var showingAllPopularArtists = false
+    @State private var showingAllYourArtists = false
+    @State private var tagArtistNames: [String]?
+    @State private var tagYourScrobbles: Int?
+    @State private var similarTagLinks: [MusicLink] = []
 
     private var title: String { info?.name ?? item.name }
     private var artistName: String { info?.artist ?? (isArtist ? title : item.artist) }
     private var isArtist: Bool { if case .artist = item { true } else { false } }
+    private var isTag: Bool { if case .tag = item { true } else { false } }
 
     var body: some View {
         List {
@@ -315,6 +365,7 @@ struct MusicPageView: View {
                     case .artist: artistSections
                     case .album: albumSections(info)
                     case .track: trackSections(info)
+                    case .tag: tagSections
                     }
                 } else {
                     Section { ProgressView().frame(maxWidth: .infinity) }
@@ -339,9 +390,15 @@ struct MusicPageView: View {
         .task { await loadInfo() }
         .task { await loadRelated() }
         .task(id: info?.userScrobbles) { await loadYours() }
-        .task(id: info?.name) {
+        .task(id: tagArtistNames?.count) { await loadYourTag() }
+        .task(id: "\(info?.name ?? "")|\(tagArtistNames?.count ?? -1)") {
             guard let info else { return }
-            monthly = await lastFM.monthlyScrobbles(for: item, canonicalName: info.name, canonicalArtist: info.artist)
+            if isTag {
+                guard let names = tagArtistNames else { return }
+                monthly = await lastFM.monthlyScrobbles(for: item, canonicalName: info.name, canonicalArtist: nil, tagArtists: names)
+            } else {
+                monthly = await lastFM.monthlyScrobbles(for: item, canonicalName: info.name, canonicalArtist: info.artist)
+            }
         }
     }
 
@@ -350,7 +407,9 @@ struct MusicPageView: View {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.largeTitle.bold()).foregroundStyle(.primary)
-                    if !isArtist {
+                    if isTag {
+                        Text("Tag").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                    } else if !isArtist {
                         Text(creditLine).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
@@ -361,6 +420,12 @@ struct MusicPageView: View {
                     .overlay {
                         if isArtist {
                             ArtistPortrait(name: title, size: nil)
+                        } else if isTag {
+                            if let top = popularArtists?.first {
+                                ArtistPortrait(name: top.link.name, size: nil)
+                            } else {
+                                RemoteArtwork(url: nil, symbol: "tag", size: nil)
+                            }
                         } else {
                             RemoteArtwork(url: info?.imageURL, symbol: albumOrTrackSymbol, size: nil)
                         }
@@ -395,9 +460,9 @@ struct MusicPageView: View {
             HStack(alignment: .top) {
                 stat("Listeners", value: info.listeners)
                 Divider()
-                stat("Scrobbles", value: info.scrobbles)
+                stat(isTag ? "Taggings" : "Scrobbles", value: info.scrobbles)
                 Divider()
-                stat("Your scrobbles", value: info.userScrobbles ?? (lastFM.username == nil ? nil : 0))
+                stat("Your scrobbles", value: isTag ? tagYourScrobbles : info.userScrobbles ?? (lastFM.username == nil ? nil : 0))
             }
         }
     }
@@ -475,6 +540,26 @@ struct MusicPageView: View {
             }
         }
         carousel("More by \(artistName)", related, kind: .albums)
+    }
+
+    @ViewBuilder private var tagSections: some View {
+        rows("Popular artists", popularArtists, kind: .artists, countLabel: "",
+             collapsedCount: 3, expanded: $showingAllPopularArtists)
+        rows("Popular tracks", popularTracks, kind: .tracks, countLabel: "",
+             collapsedCount: 3, expanded: $showingAllPopularTracks)
+        rows("Popular albums", popularAlbums, kind: .albums, countLabel: "",
+             collapsedCount: 3, expanded: $showingAllPopularAlbums)
+        if lastFM.username != nil {
+            rows("Your top artists", yourArtists, kind: .artists, countLabel: "plays", empty: "None of your top artists are tagged \(title).",
+                 collapsedCount: 3, expanded: $showingAllYourArtists)
+            rows("Your top tracks", yourTracks, kind: .tracks, countLabel: "plays", empty: "None of your top tracks are tagged \(title).",
+                 collapsedCount: 3, expanded: $showingAllYourTracks)
+            rows("Your top albums", yourAlbums, kind: .albums, countLabel: "plays", empty: "None of your top albums are tagged \(title).",
+                 collapsedCount: 3, expanded: $showingAllYourAlbums)
+        }
+        if !similarTagLinks.isEmpty {
+            Section("Similar tags") { TagChips(tags: similarTagLinks) }
+        }
     }
 
     @ViewBuilder private func trackSections(_ info: MusicPageInfo) -> some View {
@@ -570,7 +655,37 @@ struct MusicPageView: View {
             related = albums.filter { $0.link.name.caseInsensitiveCompare(name) != .orderedSame && $0.link.url != item.url }
         case .track(let artist, let name):
             related = await lastFM.similarTracks(artist: artist, track: name)
+        case .tag(let tag):
+            async let top = lastFM.tagTopArtists(tag, limit: 10)
+            async let all = lastFM.tagTopArtists(tag, limit: 1000)
+            async let tracks = lastFM.tagTopTracks(tag, limit: 10)
+            async let albums = lastFM.tagTopAlbums(tag, limit: 10)
+            async let similar = lastFM.similarTags(tag)
+            let topArtists = await top
+            popularArtists = topArtists
+            let everyone = await all
+            tagArtistNames = (everyone.isEmpty ? topArtists : everyone).map(\.link.name)
+            popularTracks = await tracks
+            popularAlbums = await albums
+            similarTagLinks = await similar
         }
+    }
+
+    private func loadYourTag() async {
+        guard isTag, let tagArtistNames, lastFM.username != nil else { return }
+        let names = Set(tagArtistNames)
+        guard !names.isEmpty else {
+            (yourArtists, yourTracks, yourAlbums, tagYourScrobbles) = ([], [], [], 0)
+            return
+        }
+        async let artists = lastFM.libraryTop(.artists, artist: names, expectedPlays: nil, limit: .max)
+        async let tracks = lastFM.libraryTop(.tracks, artist: names, expectedPlays: nil, limit: 10)
+        async let albums = lastFM.libraryTop(.albums, artist: names, expectedPlays: nil, limit: 10)
+        let matched = await artists
+        yourArtists = Array(matched.prefix(10))
+        tagYourScrobbles = matched.reduce(0) { $0 + $1.count }
+        yourTracks = await tracks
+        yourAlbums = await albums
     }
 
     private func loadYours() async {
@@ -624,7 +739,8 @@ enum MonthlyChartCache {
 }
 
 extension LastFMClient {
-    func monthlyScrobbles(for item: MusicItem, canonicalName: String, canonicalArtist: String?) async -> [MonthlyCount] {
+    func monthlyScrobbles(for item: MusicItem, canonicalName: String, canonicalArtist: String?,
+                          tagArtists: [String] = []) async -> [MonthlyCount] {
         guard let username else { return [] }
         let calendar = Calendar.current
         let now = Date()
@@ -645,6 +761,9 @@ extension LastFMClient {
             (method, root, row) = ("user.getWeeklyTrackChart", "weeklytrackchart", "track")
             keys = [ListeningReport.trackKey(artist: artist, title: name),
                     ListeningReport.trackKey(artist: canonicalArtist ?? artist, title: canonicalName)]
+        case .tag:
+            (method, root, row) = ("user.getWeeklyArtistChart", "weeklyartistchart", "artist")
+            keys = Set(tagArtists.map(ListeningReport.artistKey))
         }
 
         var counts: [Date: Int] = [:]
