@@ -1,0 +1,65 @@
+name: Build macOS
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test macOS app
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-26' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        shell: bash
+        env:
+          XCODE_PATH: ${{ vars.XCODE_PATH }}
+        run: |
+          xcode="$XCODE_PATH"
+          if [[ -z "$xcode" ]]; then
+            xcode=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc' | sort -V | tail -1 || true)
+          fi
+          if [[ -n "$xcode" ]]; then
+            echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+            export DEVELOPER_DIR="$xcode/Contents/Developer"
+          fi
+          xcodebuild -version
+          major=$(xcodebuild -version | awk 'NR==1 { split($2, part, "."); print part[1] }')
+          if (( major < 27 )); then
+            echo "::error::scrap needs Xcode 27 or newer (the macOS 27 SDK). Set the XCODE_PATH or MACOS_RUNNER repository variable."
+            exit 1
+          fi
+
+      - name: Create placeholder configuration
+        shell: bash
+        run: touch .env
+
+      - name: Build universal Release app
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project scrap.xcodeproj -scheme scrap -configuration Release \
+            -derivedDataPath build/Release -destination 'generic/platform=macOS' \
+            'ARCHS=arm64 x86_64' ONLY_ACTIVE_ARCH=NO build
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project scrap.xcodeproj -scheme scrap -configuration Debug \
+            -derivedDataPath build/Debug -destination 'platform=macOS' \
+            -only-testing:scrapTests test
