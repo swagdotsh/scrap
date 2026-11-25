@@ -140,9 +140,7 @@ private struct ConnectView: View {
     }
 
     private func connect() async {
-        guard let url = await lastFM.beginAuth() else { return }
-        let callback = try? await webAuthenticationSession.authenticate(using: url, callbackURLScheme: LastFMClient.authCallbackScheme)
-        await lastFM.completeAuth(callback: callback)
+        await lastFM.signIn(with: webAuthenticationSession)
         if lastFM.canScrobble, scrobbler.authorization == .notDetermined { await scrobbler.requestAccess() }
         if scrobbler.authorization == .authorized { nowPlaying.start() }
     }

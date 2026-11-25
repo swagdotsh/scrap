@@ -1,6 +1,8 @@
 import Foundation
 import CryptoKit
 import Combine
+import AuthenticationServices
+import SwiftUI
 
 nonisolated struct LastFMAccount: Codable, Equatable, Identifiable {
     var username: String
@@ -218,6 +220,47 @@ final class LastFMClient: ObservableObject {
 
     static let authCallbackScheme = "scrap"
 
+    private var approvedSession: (token: String, json: [String: Any])?
+
+    func signIn(with webAuth: WebAuthenticationSession,
+                browserSession: WebAuthenticationSession.BrowserSession? = nil) async {
+        guard let url = await beginAuth() else { return }
+        let callback: URL? = await withTaskGroup(of: URL?.self) { group in
+            group.addTask { @MainActor in
+                if let browserSession {
+                    return try? await webAuth.authenticate(using: url, callbackURLScheme: Self.authCallbackScheme,
+                                                           preferredBrowserSession: browserSession)
+                }
+                return try? await webAuth.authenticate(using: url, callbackURLScheme: Self.authCallbackScheme)
+            }
+            group.addTask { @MainActor in
+                await self.waitForApproval()
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        await completeAuth(callback: callback)
+    }
+
+    private func waitForApproval() async {
+        guard let token = pendingToken else { return await waitUntilCancelled() }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, pendingToken == token else { break }
+            if let json = try? await request(["method": "auth.getSession", "token": token]), json["session"] != nil {
+                approvedSession = (token, json)
+                return
+            }
+        }
+        await waitUntilCancelled()
+    }
+
+    private func waitUntilCancelled() async {
+        while !Task.isCancelled { try? await Task.sleep(for: .seconds(60)) }
+    }
+
     func beginAuth() async -> URL? {
         guard isConfigured, !isBusy else { return nil }
         isBusy = true
@@ -246,7 +289,13 @@ final class LastFMClient: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            let json = try await request(["method": "auth.getSession", "token": pendingToken])
+            let json: [String: Any]
+            if let approved = approvedSession, approved.token == pendingToken {
+                json = approved.json
+            } else {
+                json = try await request(["method": "auth.getSession", "token": pendingToken])
+            }
+            approvedSession = nil
             guard let session = json["session"] as? [String: Any], let key = session["key"] as? String,
                   let user = session["name"] as? String else { throw failure("last.fm returned no session.") }
             let account = LastFMAccount(username: user, sessionKey: key)

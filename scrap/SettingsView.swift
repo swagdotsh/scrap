@@ -186,10 +186,7 @@ struct SettingsView: View {
 
     private func addAccount() async {
         await scrobbler.sync()
-        guard let url = await lastFM.beginAuth() else { return }
-        let callback = try? await webAuthenticationSession.authenticate(using: url, callbackURLScheme: LastFMClient.authCallbackScheme,
-                                                                        preferredBrowserSession: .ephemeral)
-        await lastFM.completeAuth(callback: callback)
+        await lastFM.signIn(with: webAuthenticationSession, browserSession: .ephemeral)
     }
 
     private var reportTimeDescription: String {

@@ -277,6 +277,10 @@ struct MusicPageView: View {
     @State private var error: String?
     @State private var showingDescription = false
     @State private var popularTracks: [ProfileChartEntry]?
+    @State private var showingAllPopularTracks = false
+    @State private var showingAllYourTracks = false
+    @State private var showingAllPopularAlbums = false
+    @State private var showingAllYourAlbums = false
     @State private var popularAlbums: [ProfileChartEntry]?
     @State private var yourTracks: [ProfileChartEntry]?
     @State private var yourAlbums: [ProfileChartEntry]?
@@ -437,11 +441,15 @@ struct MusicPageView: View {
     }
 
     @ViewBuilder private var artistSections: some View {
-        rows("Popular tracks", popularTracks, kind: .tracks, countLabel: "scrobbles")
-        rows("Popular albums", popularAlbums, kind: .albums, countLabel: "scrobbles")
+        rows("Popular tracks", popularTracks, kind: .tracks, countLabel: "scrobbles",
+             collapsedCount: 3, expanded: $showingAllPopularTracks)
+        rows("Popular albums", popularAlbums, kind: .albums, countLabel: "scrobbles",
+             collapsedCount: 3, expanded: $showingAllPopularAlbums)
         if (info?.userScrobbles ?? 0) > 0 {
-            rows("Your top tracks", yourTracks, kind: .tracks, countLabel: "plays", empty: "None of your top tracks are by \(title).")
-            rows("Your top albums", yourAlbums, kind: .albums, countLabel: "plays", empty: "None of your top albums are by \(title).")
+            rows("Your top tracks", yourTracks, kind: .tracks, countLabel: "plays", empty: "None of your top tracks are by \(title).",
+                 collapsedCount: 3, expanded: $showingAllYourTracks)
+            rows("Your top albums", yourAlbums, kind: .albums, countLabel: "plays", empty: "None of your top albums are by \(title).",
+                 collapsedCount: 3, expanded: $showingAllYourAlbums)
         }
         carousel("Similar artists", related, kind: .artists)
     }
@@ -474,12 +482,15 @@ struct MusicPageView: View {
     }
 
     @ViewBuilder private func rows(_ title: String, _ entries: [ProfileChartEntry]?, kind: ChartKind,
-                                   countLabel: String, empty: String? = nil) -> some View {
+                                   countLabel: String, empty: String? = nil,
+                                   collapsedCount: Int? = nil, expanded: Binding<Bool>? = nil) -> some View {
         if entries == nil || entries?.isEmpty == false || empty != nil {
             Section(title) {
                 if let entries {
+                    let isExpanded = expanded?.wrappedValue ?? true
+                    let visible = collapsedCount.map { isExpanded ? entries : Array(entries.prefix($0)) } ?? entries
                     if entries.isEmpty, let empty { Text(empty).foregroundStyle(.secondary) }
-                    ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                    ForEach(Array(visible.enumerated()), id: \.element.id) { index, entry in
                         LinkRow(url: entry.link.url, title: entry.link.name,
                                 trailing: entry.count > 0 ? "\(entry.count.formatted(.number.notation(.compactName))) \(countLabel)" : nil) {
                             HStack(spacing: 10) {
@@ -488,6 +499,12 @@ struct MusicPageView: View {
                                 ChartArtwork(kind: kind, entry: entry, size: 44)
                             }
                         }
+                    }
+                    if let collapsedCount, let expanded, entries.count > collapsedCount {
+                        Button(expanded.wrappedValue ? "View less" : "View more") {
+                            withAnimation { expanded.wrappedValue.toggle() }
+                        }
+                        .font(.callout.bold())
                     }
                 } else {
                     ProgressView().frame(maxWidth: .infinity)
@@ -543,7 +560,7 @@ struct MusicPageView: View {
         switch item {
         case .artist(let artist):
             async let tracks = lastFM.artistTopTracks(artist, limit: 10)
-            async let albums = lastFM.artistTopAlbums(artist, limit: 5)
+            async let albums = lastFM.artistTopAlbums(artist, limit: 10)
             async let similar = lastFM.similarArtists(artist)
             popularTracks = await tracks
             popularAlbums = await albums
@@ -560,7 +577,7 @@ struct MusicPageView: View {
         guard isArtist, let info, let plays = info.userScrobbles, plays > 0 else { return }
         let names: Set<String> = [info.name, item.name]
         async let tracks = lastFM.libraryTop(.tracks, artist: names, expectedPlays: plays, limit: 10)
-        async let albums = lastFM.libraryTop(.albums, artist: names, expectedPlays: plays, limit: 5)
+        async let albums = lastFM.libraryTop(.albums, artist: names, expectedPlays: plays, limit: 10)
         yourTracks = await tracks
         yourAlbums = await albums
     }

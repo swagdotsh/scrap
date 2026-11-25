@@ -38,8 +38,17 @@ struct NowPlayingView: View {
         return nil
     }
 
+    private func infoTrack(_ track: PlayingTrack, isRemote: Bool) -> PlayingTrack {
+        guard !isRemote else { return track }
+        let names = lastFM.scrobbledNames(for: track)
+        return PlayingTrack(title: names.title, artist: names.artist, album: names.album, duration: track.duration)
+    }
+
     private var shownKey: String {
-        shown.map { "\($0.isRemote)|\($0.track.artist)|\($0.track.title)|\($0.track.album)" } ?? ""
+        shown.map {
+            let info = infoTrack($0.track, isRemote: $0.isRemote)
+            return "\($0.isRemote)|\($0.track.artist)|\($0.track.title)|\($0.track.album)|\(info.artist)|\(info.title)"
+        } ?? ""
     }
 
     var body: some View {
@@ -48,7 +57,7 @@ struct NowPlayingView: View {
                 Section {
                     trackCard(track, isRemote: isRemote)
                     if let details {
-                        summary(details, track: track).font(.subheadline).foregroundStyle(.secondary)
+                        summary(details, track: infoTrack(track, isRemote: isRemote)).font(.subheadline).foregroundStyle(.secondary)
                         if !details.trackTags.isEmpty { TagChips(tags: details.trackTags) }
                     }
                 } header: {
@@ -63,7 +72,7 @@ struct NowPlayingView: View {
                     }
                 }
                 if let details {
-                    artistSections(track.artist, details: details.artist)
+                    artistSections(infoTrack(track, isRemote: isRemote).artist, details: details.artist)
                 } else {
                     Section { ProgressView().frame(maxWidth: .infinity) }
                 }
@@ -75,7 +84,8 @@ struct NowPlayingView: View {
         .refreshable { await scrobbler.sync(); await lastFM.retryPending(); await loadRemote() }
         .task(id: "\(lastFM.username ?? "")|\(shownKey)") {
             details = nil
-            guard let track = shown?.track else { return }
+            guard let (shownTrack, isRemote) = shown else { return }
+            let track = infoTrack(shownTrack, isRemote: isRemote)
             let result = await lastFM.listeningDetails(for: track)
             if !Task.isCancelled { details = result }
         }
